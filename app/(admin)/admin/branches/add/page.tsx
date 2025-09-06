@@ -1,0 +1,79 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { BranchService } from '@/lib/branchService';
+
+export default function AddBranchPage() {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    code: '',
+    address: '',
+    phone: '',
+    email: '',
+    is_active: true,
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const created = await BranchService.create(form);
+      if (created) router.push('/admin/branches');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6 w-full">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Add Branch</h1>
+          <p className="mt-2 text-gray-600">Create a new branch/office</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-8">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
+              <input name="name" value={form.name} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Code *</label>
+              <input name="code" value={form.code} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
+              <textarea name="address" value={form.address} onChange={handleChange} rows={3} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+              <input name="phone" value={form.phone} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input name="email" value={form.email} onChange={handleChange} type="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent" />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end space-x-4">
+          <button type="button" onClick={() => router.push('/admin/branches')} className="px-6 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Cancel</button>
+          <button type="submit" disabled={saving} className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg hover:from-emerald-600 hover:to-teal-600 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed">{saving ? 'Saving...' : 'Create Branch'}</button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+
