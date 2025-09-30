@@ -10,24 +10,24 @@ export default function Dashboard() {
   const { user, userProfile, loading } = useAuth();
   const router = useRouter();
 
-           useEffect(() => {
-           if (!loading) {
-             if (!user) {
-               router.push('/login');
-             } else if (userProfile) {
-               // Redirect to role-specific dashboard
-               if (userProfile.role === 'admin') {
-                 router.push('/admin');
-               } else if (userProfile.role === 'branch') {
-                 router.push('/branch');
-               } else if (userProfile.role === 'mpo') {
-                 router.push('/mpo');
-               } else {
-                 router.push('/login');
-               }
-             }
-           }
-         }, [user, userProfile, loading, router]);
+    useEffect(() => {
+    if (!loading) {
+      if (!user) {
+        router.push('/login');
+      } else if (userProfile) {
+        // Redirect to role-specific dashboard
+        if (userProfile.role === 'admin') {
+          router.push('/admin');
+        } else if (userProfile.role === 'branch') {
+          router.push('/branch');
+      } else if (userProfile.role === 'employee') {
+          router.push('/employee');
+        } else {
+          router.push('/login');
+        }
+      }
+    }
+  }, [user, userProfile, loading, router]);
   const stats = [
     { title: 'Total Sales', value: '$125,430', change: '+12.5%', icon: '💰' },
     { title: 'Inventory Items', value: '2,847', change: '+3.2%', icon: '📦' },
@@ -48,7 +48,7 @@ export default function Dashboard() {
       <div className="flex-1 w-full">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-2">Welcome to Wellmart ERP - Wellcare Nutriscience Ltd</p>
+          <p className="text-gray-600 mt-2">Welcome to Wellcare Nutriscience Ltd.</p>
         </div>
 
         {/* Stats Cards */}

@@ -20,13 +20,13 @@ export default function MPOLoginPage() {
     setError('');
 
     try {
-      const { error } = await signIn(email, password, 'mpo');
+      const { error } = await signIn(email, password, 'employee');
 
       if (error) {
         setError(error.message);
       } else {
         // Redirect to MPO dashboard
-        router.push('/mpo/dashboard');
+        router.push('/employee/dashboard');
       }
     } catch (err) {
       setError('An unexpected error occurred');
@@ -43,7 +43,7 @@ export default function MPOLoginPage() {
             <span className="text-3xl">👤</span>
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            MPO Login
+            Employee Login
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Access your field sales dashboard
@@ -63,7 +63,7 @@ export default function MPOLoginPage() {
                 autoComplete="email"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-purple-500 focus:border-purple-500 focus:z-10 sm:text-sm"
-                placeholder="MPO email address"
+                placeholder="Employee email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
@@ -113,14 +113,14 @@ export default function MPOLoginPage() {
                   Signing in...
                 </div>
               ) : (
-                'Sign In as MPO'
+                'Sign In as Employee'
               )}
             </button>
           </div>
 
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              MPO access only - Contact your branch manager
+              Employee access only - Contact your branch manager
             </p>
           </div>
         </form>

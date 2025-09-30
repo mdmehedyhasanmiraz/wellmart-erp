@@ -1,3 +1,5 @@
+"use client";
+
 import Navigation from '../components/Navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useState, useEffect } from 'react';

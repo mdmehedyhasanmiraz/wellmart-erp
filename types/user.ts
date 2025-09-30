@@ -12,7 +12,7 @@ export interface User {
   updated_at: string;
 }
 
-export type UserRole = 'admin' | 'branch' | 'mpo';
+export type UserRole = 'admin' | 'branch' | 'employee';
 
 export interface Branch {
   id: string;
@@ -70,7 +70,7 @@ export type DashboardRoutes = {
 export const DASHBOARD_ROUTES: DashboardRoutes = {
   admin: '/admin',
   branch: '/branch',
-  mpo: '/mpo',
+  employee: '/employee',
 };
 
 // Product related types
@@ -268,4 +268,145 @@ export interface UpdateEmployeeData {
   joined_date?: string; // ISO date
   resigned_date?: string; // ISO date
   is_active?: boolean;
+}
+
+// Inventory types
+export type InventoryMovementType = 'adjustment' | 'transfer' | 'purchase' | 'sale' | 'return';
+
+export interface ProductBranchStock {
+  id: string;
+  product_id: string;
+  branch_id: string;
+  stock: number;
+  min_level?: number;
+  max_level?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InventoryMovement {
+  id: string;
+  product_id: string;
+  from_branch_id?: string | null;
+  to_branch_id?: string | null;
+  quantity: number;
+  type: InventoryMovementType;
+  note?: string;
+  created_by?: string;
+  created_at: string;
+}
+
+export type TransferStatus = 'pending' | 'approved' | 'completed' | 'cancelled';
+
+export interface BranchTransfer {
+  id: string;
+  from_branch_id: string;
+  to_branch_id: string;
+  status: TransferStatus;
+  note?: string;
+  created_by?: string;
+  approved_by?: string;
+  completed_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BranchTransferItem {
+  id: string;
+  transfer_id: string;
+  product_id: string;
+  quantity: number;
+}
+
+// Sales types
+export type SalesStatus = 'draft' | 'posted' | 'cancelled' | 'returned';
+
+export interface SalesOrder {
+  id: string;
+  branch_id: string;
+  party_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  status: SalesStatus;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  shipping_total: number;
+  grand_total: number;
+  paid_total: number;
+  due_total: number;
+  note?: string;
+  created_by?: string;
+  posted_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SalesOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  discount_percent: number;
+  total: number;
+}
+
+export interface SalesPayment {
+  id: string;
+  order_id: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  paid_at: string;
+  received_by?: string;
+}
+
+// Party (customer) types
+export interface Party {
+  id: string;
+  name: string;
+  party_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Allowances
+export type AllowanceItemType = 'product' | 'money' | 'gift' | 'other';
+
+export interface EmployeeAllowance {
+  id: string;
+  employee_id: string;
+  branch_id?: string;
+  allowance_date: string; // ISO date
+  total_value: number;
+  note?: string;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmployeeAllowanceItem {
+  id: string;
+  allowance_id: string;
+  item_type: AllowanceItemType;
+  product_id?: string | null;
+  description?: string;
+  quantity: number;
+  unit_value: number;
+  total_value: number;
 }
