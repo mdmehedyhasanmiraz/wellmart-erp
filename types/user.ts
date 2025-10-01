@@ -33,6 +33,7 @@ export interface CreateUserData {
   phone?: string;
   role: UserRole;
   branch_id?: string;
+  password?: string;
 }
 
 export interface UpdateUserData {
@@ -82,8 +83,9 @@ export interface Product {
   dosage_form?: string;
   pack_size?: string;
   sku: string;
-  price_regular: number;
-  price_offer?: number;
+  pp: number; // Purchase Price
+  tp: number; // Trade Price
+  mrp: number; // Maximum Retail Price
   stock: number;
   image_urls?: string[];
   description: string;
@@ -93,10 +95,10 @@ export interface Product {
   created_at: string;
   updated_at: string;
   keywords: string[];
-  price_purchase?: number;
   video?: string;
   flash_sale: boolean;
   is_featured: boolean;
+  flat_rate: boolean;
   sub_products?: string[];
   variants?: Record<string, any>;
   weight?: number;
@@ -136,6 +138,39 @@ export interface ProductWithDetails extends Product {
   company?: Company;
 }
 
+// Product Batches
+export interface ProductBatch {
+  id: string;
+  product_id: string;
+  batch_no: string;
+  quantity: number;
+  added_at: string; // ISO date (date)
+  mfg_date?: string; // ISO date (date)
+  exp_date?: string; // ISO date (date)
+  note?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateProductBatchData {
+  product_id: string;
+  batch_no: string;
+  quantity: number;
+  added_at?: string; // ISO date
+  mfg_date?: string; // ISO date
+  exp_date?: string; // ISO date
+  note?: string;
+}
+
+export interface UpdateProductBatchData {
+  batch_no?: string;
+  quantity?: number;
+  added_at?: string; // ISO date
+  mfg_date?: string; // ISO date
+  exp_date?: string; // ISO date
+  note?: string;
+}
+
 export interface CreateProductData {
   name: string;
   slug: string;
@@ -143,8 +178,9 @@ export interface CreateProductData {
   dosage_form?: string;
   pack_size?: string;
   sku: string;
-  price_regular: number;
-  price_offer?: number;
+  pp: number; // Purchase Price
+  tp: number; // Trade Price
+  mrp: number; // Maximum Retail Price
   stock: number;
   image_urls?: string[];
   description: string;
@@ -152,10 +188,10 @@ export interface CreateProductData {
   company_id?: string;
   is_active?: boolean;
   keywords?: string[];
-  price_purchase?: number;
   video?: string;
   flash_sale?: boolean;
   is_featured?: boolean;
+  flat_rate?: boolean;
   sub_products?: string[];
   variants?: Record<string, any>;
   weight?: number;
@@ -169,8 +205,9 @@ export interface UpdateProductData {
   dosage_form?: string;
   pack_size?: string;
   sku?: string;
-  price_regular?: number;
-  price_offer?: number;
+  pp?: number; // Purchase Price
+  tp?: number; // Trade Price
+  mrp?: number; // Maximum Retail Price
   stock?: number;
   image_urls?: string[];
   description?: string;
@@ -178,10 +215,10 @@ export interface UpdateProductData {
   company_id?: string;
   is_active?: boolean;
   keywords?: string[];
-  price_purchase?: number;
   video?: string;
   flash_sale?: boolean;
   is_featured?: boolean;
+  flat_rate?: boolean;
   sub_products?: string[];
   variants?: Record<string, any>;
   weight?: number;
@@ -230,11 +267,69 @@ export interface UpdateCompanyData {
   is_active?: boolean;
 }
 
+// Designation types
+export interface Designation {
+  id: string;
+  name: string;
+  code: string;
+  description?: string;
+  parent_id?: string;
+  level: number;
+  sort_order: number;
+  department?: string;
+  reporting_to_id?: string;
+  min_salary?: number;
+  max_salary?: number;
+  responsibilities?: string[];
+  requirements?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+  updated_by?: string;
+}
+
+export interface DesignationWithDetails extends Designation {
+  parent?: Designation;
+  reporting_to?: Designation;
+  children?: Designation[];
+}
+
+export interface CreateDesignationData {
+  name: string;
+  code: string;
+  description?: string;
+  parent_id?: string;
+  sort_order?: number;
+  department?: string;
+  reporting_to_id?: string;
+  min_salary?: number;
+  max_salary?: number;
+  responsibilities?: string[];
+  requirements?: string[];
+}
+
+export interface UpdateDesignationData {
+  name?: string;
+  code?: string;
+  description?: string;
+  parent_id?: string;
+  sort_order?: number;
+  department?: string;
+  reporting_to_id?: string;
+  min_salary?: number;
+  max_salary?: number;
+  responsibilities?: string[];
+  requirements?: string[];
+  is_active?: boolean;
+}
+
 // Employee types
 export interface Employee {
   id: string;
   name: string;
-  designation?: string;
+  designation_id?: string;
+  designation?: Designation;
   employee_code: string;
   branch_id?: string;
   phone?: string;
@@ -248,7 +343,7 @@ export interface Employee {
 
 export interface CreateEmployeeData {
   name: string;
-  designation?: string;
+  designation_id?: string;
   employee_code: string;
   branch_id?: string;
   phone?: string;
@@ -260,7 +355,7 @@ export interface CreateEmployeeData {
 
 export interface UpdateEmployeeData {
   name?: string;
-  designation?: string;
+  designation_id?: string;
   employee_code?: string;
   branch_id?: string;
   phone?: string;
@@ -271,8 +366,6 @@ export interface UpdateEmployeeData {
 }
 
 // Inventory types
-export type InventoryMovementType = 'adjustment' | 'transfer' | 'purchase' | 'sale' | 'return';
-
 export interface ProductBranchStock {
   id: string;
   product_id: string;
@@ -290,8 +383,8 @@ export interface InventoryMovement {
   from_branch_id?: string | null;
   to_branch_id?: string | null;
   quantity: number;
-  type: InventoryMovementType;
   note?: string;
+  batch_id?: string;
   created_by?: string;
   created_at: string;
 }
@@ -315,6 +408,69 @@ export interface BranchTransferItem {
   id: string;
   transfer_id: string;
   product_id: string;
+  quantity: number;
+  batch_id?: string;
+}
+
+// Batch Management Types
+export type BatchStatus = 'active' | 'expired' | 'recalled' | 'consumed';
+
+export interface ProductBatch {
+  id: string;
+  product_id: string;
+  batch_number: string;
+  expiry_date?: string;
+  manufacturing_date?: string;
+  supplier_batch_number?: string;
+  cost_price?: number;
+  quantity_received: number;
+  quantity_remaining: number;
+  status: BatchStatus;
+  created_at: string;
+  updated_at: string;
+  created_by?: string;
+}
+
+export interface ProductBranchBatchStock {
+  id: string;
+  product_id: string;
+  branch_id: string;
+  batch_id: string;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+  product_batches?: {
+    id: string;
+    batch_number: string;
+    expiry_date?: string;
+    manufacturing_date?: string;
+    status: BatchStatus;
+  };
+}
+
+export interface CreateBatchData {
+  product_id: string;
+  batch_number: string;
+  expiry_date?: string;
+  manufacturing_date?: string;
+  supplier_batch_number?: string;
+  cost_price?: number;
+  quantity_received: number;
+}
+
+export interface UpdateBatchData {
+  batch_number?: string;
+  expiry_date?: string;
+  manufacturing_date?: string;
+  supplier_batch_number?: string;
+  cost_price?: number;
+  quantity_received?: number;
+  quantity_remaining?: number;
+  status?: BatchStatus;
+}
+
+export interface BatchStockEntry {
+  batch_id: string;
   quantity: number;
 }
 

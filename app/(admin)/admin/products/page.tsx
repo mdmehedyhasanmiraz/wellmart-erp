@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProductWithDetails } from '@/types/user';
 import { ProductService } from '@/lib/productService';
+import { InventoryService } from '@/lib/inventoryService';
 
 export default function ProductsPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [stocksByProduct, setStocksByProduct] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchProducts();
@@ -21,6 +23,22 @@ export default function ProductsPage() {
     try {
       const data = await ProductService.getAllProducts();
       setProducts(data);
+      // fetch total stock per product from batch-level stocks
+      const totals = await Promise.all(
+        (data || []).map(async (p) => {
+          try {
+            const total = await InventoryService.getTotalStockForProduct(p.id);
+            return [p.id, total] as const;
+          } catch {
+            return [p.id, 0] as const;
+          }
+        })
+      );
+      const map: Record<string, number> = {};
+      totals.forEach(([id, total]) => {
+        map[id] = total || 0;
+      });
+      setStocksByProduct(map);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -29,14 +47,15 @@ export default function ProductsPage() {
   };
 
   const filteredProducts = products.filter(product => {
+    const stockValue = stocksByProduct[product.id] ?? 0;
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          product.sku?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !filterCategory || product.category_id === filterCategory;
     const matchesStatus = !filterStatus || 
       (filterStatus === 'active' && product.is_active) ||
       (filterStatus === 'inactive' && !product.is_active) ||
-      (filterStatus === 'low-stock' && product.stock < 100) ||
-      (filterStatus === 'out-of-stock' && product.stock === 0);
+      (filterStatus === 'low-stock' && stockValue < 100 && stockValue > 0) ||
+      (filterStatus === 'out-of-stock' && stockValue === 0);
     
     return matchesSearch && matchesCategory && matchesStatus;
   });
@@ -194,22 +213,16 @@ export default function ProductsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     <div>
-                      <div className="font-medium">{ProductService.formatPrice(product.price_regular)}</div>
-                      {product.price_offer && product.price_offer !== product.price_regular && (
-                        <div className="text-green-600 text-xs">
-                          Offer: {ProductService.formatPrice(product.price_offer)}
-                        </div>
-                      )}
+                      <div className="font-medium">MRP: {ProductService.formatPrice(product.mrp)}</div>
+                      <div className="text-gray-600 text-xs">TP: {ProductService.formatPrice(product.tp)}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className={`font-medium ${
-                      product.stock === 0 ? 'text-red-600' :
-                      product.stock < 100 ? 'text-yellow-600' :
-                      'text-green-600'
-                    }`}>
-                      {product.stock}
-                    </span>
+                    {(() => {
+                      const val = stocksByProduct[product.id] ?? 0;
+                      const cls = val === 0 ? 'text-red-600' : val < 100 ? 'text-yellow-600' : 'text-green-600';
+                      return <span className={`font-medium ${cls}`}>{val}</span>;
+                    })()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -271,13 +284,16 @@ export default function ProductsPage() {
           </div>
           <div>
             <div className="text-2xl font-bold text-yellow-600">
-              {products.filter(p => p.stock < 100 && p.stock > 0).length}
+              {products.filter(p => {
+                const val = stocksByProduct[p.id] ?? 0;
+                return val < 100 && val > 0;
+              }).length}
             </div>
             <div className="text-sm text-gray-500">Low Stock</div>
           </div>
           <div>
             <div className="text-2xl font-bold text-red-600">
-              {products.filter(p => p.stock === 0).length}
+              {products.filter(p => (stocksByProduct[p.id] ?? 0) === 0).length}
             </div>
             <div className="text-sm text-gray-500">Out of Stock</div>
           </div>

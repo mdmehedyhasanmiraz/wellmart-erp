@@ -31,17 +31,29 @@ export default function AdminInventoryPage() {
     if (!selectedBranchId) return;
     setLoading(true);
     const load = async () => {
-      const [stockRows, allProducts] = await Promise.all([
-        InventoryService.getStocksByBranch(selectedBranchId),
-        ProductService.getAllProducts(),
-      ]);
-      const pById: Record<string, Product> = {};
-      allProducts.forEach((p) => {
-        pById[p.id] = p;
-      });
-      setProductsById(pById);
-      setStocks(stockRows.map((s) => ({ ...s, product: pById[s.product_id] })));
-      setLoading(false);
+      try {
+        console.log('Loading inventory for branch:', selectedBranchId);
+        const [stockRows, allProducts] = await Promise.all([
+          InventoryService.getStocksByBranch(selectedBranchId),
+          ProductService.getAllProducts(),
+        ]);
+        
+        console.log('Stock rows loaded:', stockRows.length);
+        console.log('Products loaded:', allProducts.length);
+        
+        const pById: Record<string, Product> = {};
+        allProducts.forEach((p) => {
+          pById[p.id] = p;
+        });
+        setProductsById(pById);
+        setStocks(stockRows.map((s) => ({ ...s, product: pById[s.product_id] })));
+      } catch (error) {
+        console.error('Error loading inventory:', error);
+        setStocks([]);
+        setProductsById({});
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, [selectedBranchId]);
@@ -56,7 +68,7 @@ export default function AdminInventoryPage() {
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <AdminSidebar />
-      <div className="ml-72 p-8 w-full">
+      <div className="p-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Branch Inventory</h1>

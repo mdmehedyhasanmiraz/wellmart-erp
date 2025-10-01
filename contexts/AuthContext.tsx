@@ -5,13 +5,15 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { User, UserRole, UserProfile, DASHBOARD_ROUTES } from '@/types/user';
 import { UserService } from '@/lib/userService';
+import { userProfileCache } from '@/lib/userProfileCache';
 
 interface AuthContextType {
   user: SupabaseUser | null;
   userProfile: UserProfile | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string, role?: UserRole) => Promise<{ error: any }>;
+  profileLoading: boolean;
+  signIn: (email: string, password: string, role?: UserRole) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
 }
@@ -23,28 +25,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  const fetchUserProfile = async (userId: string) => {
-    try {
-               const profile = await UserService.getUserProfile(userId);
-         if (profile) {
-           const permissions = UserService.getUserPermissions(profile.role);
-           const dashboardRoute = DASHBOARD_ROUTES[profile.role];
-
-           setUserProfile({
-             ...profile,
-             permissions,
-             dashboard_route: dashboardRoute
-           });
-         }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
+  const fetchUserProfile = async (userId: string, retries = 3): Promise<void> => {
+    // Check if we already have a profile for this user
+    if (userProfile && userProfile.id === userId) {
+      console.log('User profile already loaded, skipping fetch');
+      return;
     }
+
+    setProfileLoading(true);
+    
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        console.log(`Fetching user profile (attempt ${attempt}/${retries})`);
+        
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 10000)
+        );
+        
+        const profilePromise = UserService.getUserProfile(userId);
+        const profile = await Promise.race([profilePromise, timeoutPromise]) as User | null;
+        
+        if (profile) {
+          const permissions = UserService.getUserPermissions(profile.role);
+          const dashboardRoute = DASHBOARD_ROUTES[profile.role];
+
+          setUserProfile({
+            ...profile,
+            permissions,
+            dashboard_route: dashboardRoute
+          });
+          console.log('User profile fetched successfully');
+          setProfileLoading(false);
+          return; // Success, exit retry loop
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`Error fetching user profile (attempt ${attempt}/${retries}):`, errorMessage);
+        
+        // If it's a timeout error and we have more retries, continue
+        if (errorMessage === 'Request timeout' && attempt < retries) {
+          console.log(`Timeout on attempt ${attempt}, retrying...`);
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          continue;
+        }
+        
+        if (attempt === retries) {
+          console.error('Failed to fetch user profile after all retries');
+          
+          // Create a fallback user profile with basic info from auth
+          if (user) {
+            console.log('Creating fallback user profile from auth data');
+            const userRole = (user.user_metadata?.role as UserRole) || 'employee';
+            const fallbackProfile: UserProfile = {
+              id: user.id,
+              email: user.email || '',
+              name: user.user_metadata?.name || '',
+              role: userRole,
+              branch_id: user.user_metadata?.branch_id || undefined,
+              branch_name: undefined,
+              is_active: true,
+              created_at: user.created_at,
+              updated_at: user.updated_at || user.created_at,
+              permissions: UserService.getUserPermissions(userRole),
+              dashboard_route: DASHBOARD_ROUTES[userRole]
+            };
+            
+            setUserProfile(fallbackProfile);
+            console.log('Fallback user profile set');
+          }
+          setProfileLoading(false);
+          return; // Exit the retry loop
+        } else {
+          // Wait before retry for non-timeout errors
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
+    }
+    
+    setProfileLoading(false);
   };
 
   useEffect(() => {
+    let mounted = true;
+
     // Get initial session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -59,6 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -71,24 +143,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  const signIn = async (email: string, password: string, role?: UserRole) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+  const signIn = async (email: string, password: string, role?: UserRole): Promise<{ success: boolean; error?: string }> => {
+    try {
+      console.log('Starting sign in process');
+      
+      // Add timeout to sign in
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Sign in timeout')), 15000)
+      );
+      
+      const signInPromise = supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;
 
-    if (!error && data.user) {
-      // Fetch user profile after successful login
-      await fetchUserProfile(data.user.id);
+      if (error) {
+        console.error('Sign in error:', error);
+        return { success: false, error: error.message };
+      }
+
+      if (data.user) {
+        console.log('Sign in successful, fetching profile');
+        // Fetch user profile after successful login
+        await fetchUserProfile(data.user.id);
+        return { success: true };
+      }
+
+      return { success: false, error: 'No user data returned' };
+    } catch (error) {
+      console.error('Sign in error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Network error or timeout occurred' };
     }
-
-    return { error };
   };
-
-
 
   const refreshUserProfile = async () => {
     if (user) {
@@ -97,7 +191,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // Clear user profile cache
+      if (user) {
+        userProfileCache.clear(user.id);
+      }
+      
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
 
   const value = {
@@ -105,6 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     userProfile,
     session,
     loading,
+    profileLoading,
     signIn,
     signOut,
     refreshUserProfile,

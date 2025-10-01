@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ProductService } from '@/lib/productService';
+import { InventoryService } from '@/lib/inventoryService';
 import { ProductWithDetails } from '@/types/user';
 
 interface ProductFormData {
@@ -12,19 +13,20 @@ interface ProductFormData {
   dosage_form: string;
   pack_size: string;
   sku: string;
-  price_regular: number;
-  price_offer: number;
+  pp: number; // Purchase Price
+  tp: number; // Trade Price
+  mrp: number; // Maximum Retail Price
   stock: number;
   description: string;
   category_id: string;
   company_id: string;
   is_active: boolean;
   keywords: string[];
-  price_purchase: number;
   weight: number;
   weight_unit: string;
   is_featured: boolean;
   flash_sale: boolean;
+  flat_rate: boolean;
 }
 
 export default function EditProductPage() {
@@ -42,28 +44,77 @@ export default function EditProductPage() {
     dosage_form: '',
     pack_size: '',
     sku: '',
-    price_regular: 0,
-    price_offer: 0,
+    pp: 0, // Purchase Price
+    tp: 0, // Trade Price
+    mrp: 0, // Maximum Retail Price
     stock: 0,
     description: '',
     category_id: '',
     company_id: '',
     is_active: true,
     keywords: [],
-    price_purchase: 0,
     weight: 0,
     weight_unit: 'kg',
     is_featured: false,
     flash_sale: false,
+    flat_rate: false,
   });
 
-  const [keywordInput, setKeywordInput] = useState('');
+  
+  
+  interface ProductBatchInput {
+    id?: string;
+    batch_number: string;
+    quantity_received: number;
+    quantity_remaining?: number;
+    manufacturing_date?: string;
+    expiry_date?: string;
+    supplier_batch_number?: string;
+    cost_price?: number;
+    status?: 'active' | 'expired' | 'recalled' | 'consumed';
+  }
+
+  const [batches, setBatches] = useState<ProductBatchInput[]>([]);
+  const [branchStocks, setBranchStocks] = useState<Array<{ branch_id: string; stock: number; branches?: { id: string; name: string; code: string } }>>([]);
+  const [totalStock, setTotalStock] = useState<number>(0);
+  const [stockView, setStockView] = useState<'batch' | 'branch'>('batch');
 
   useEffect(() => {
     if (productId) {
       fetchProduct();
     }
   }, [productId]);
+
+  useEffect(() => {
+    if (!productId) return;
+    (async () => {
+      const [data, total, branchwise] = await Promise.all([
+        InventoryService.getBatchesByProduct(productId),
+        InventoryService.getTotalStockForProduct(productId),
+        InventoryService.getBranchStocksForProduct(productId),
+      ]);
+      setBatches(
+        (data || []).map((b: any) => ({
+          id: b.id,
+          batch_number: b.batch_number,
+          quantity_received: b.quantity_received,
+          quantity_remaining: b.quantity_remaining,
+          manufacturing_date: b.manufacturing_date || undefined,
+          expiry_date: b.expiry_date || undefined,
+          supplier_batch_number: b.supplier_batch_number || undefined,
+          cost_price: b.cost_price || undefined,
+          status: b.status,
+        }))
+      );
+      setTotalStock(total || 0);
+      setBranchStocks(branchwise || []);
+    })();
+  }, [productId]);
+
+  useEffect(() => {
+    const total = batches.reduce((sum, b) => sum + (b.quantity_remaining || b.quantity_received || 0), 0);
+    setFormData(prev => ({ ...prev, stock: total }));
+  }, [batches]);
 
   const fetchProduct = async () => {
     try {
@@ -78,19 +129,20 @@ export default function EditProductPage() {
         dosage_form: data?.dosage_form || '',
         pack_size: data?.pack_size || '',
         sku: data?.sku || '',
-        price_regular: data?.price_regular || 0,
-        price_offer: data?.price_offer || 0,
+        pp: data?.pp || 0, // Purchase Price
+        tp: data?.tp || 0, // Trade Price
+        mrp: data?.mrp || 0, // Maximum Retail Price
         stock: data?.stock || 0,
         description: data?.description || '',
         category_id: data?.category_id || '',
         company_id: data?.company_id || '',
         is_active: data?.is_active ?? true,
         keywords: data?.keywords || [],
-        price_purchase: data?.price_purchase || 0,
         weight: data?.weight || 0,
         weight_unit: data?.weight_unit || 'kg',
         is_featured: data?.is_featured ?? false,
         flash_sale: data?.flash_sale ?? false,
+        flat_rate: data?.flat_rate ?? false,
       });
     } catch (error) {
       console.error('Error fetching product:', error);
@@ -114,22 +166,7 @@ export default function EditProductPage() {
     }
   };
 
-  const handleAddKeyword = () => {
-    if (keywordInput.trim() && !formData.keywords.includes(keywordInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        keywords: [...prev.keywords, keywordInput.trim()]
-      }));
-      setKeywordInput('');
-    }
-  };
-
-  const handleRemoveKeyword = (keyword: string) => {
-    setFormData(prev => ({
-      ...prev,
-      keywords: prev.keywords.filter(k => k !== keyword)
-    }));
-  };
+  
 
   const generateSlug = (name: string) => {
     return name
@@ -155,6 +192,36 @@ export default function EditProductPage() {
 
     try {
       await ProductService.updateProduct(productId, formData);
+      // update existing batches via InventoryService
+      const existing = batches.filter(b => b.id);
+      const created = batches.filter(b => !b.id);
+      await Promise.all(
+        existing.map(b =>
+          InventoryService.updateBatch(b.id as string, {
+            batch_number: b.batch_number,
+            expiry_date: b.expiry_date,
+            manufacturing_date: b.manufacturing_date,
+            supplier_batch_number: b.supplier_batch_number,
+            cost_price: b.cost_price,
+            quantity_received: b.quantity_received,
+            quantity_remaining: b.quantity_remaining,
+            status: b.status,
+          })
+        )
+      );
+      await Promise.all(
+        created.map(b =>
+          InventoryService.createBatch({
+            product_id: productId,
+            batch_number: b.batch_number,
+            expiry_date: b.expiry_date,
+            manufacturing_date: b.manufacturing_date,
+            supplier_batch_number: b.supplier_batch_number,
+            cost_price: b.cost_price,
+            quantity_received: b.quantity_received || 0,
+          })
+        )
+      );
       router.push('/admin/products');
     } catch (error) {
       console.error('Error updating product:', error);
@@ -187,7 +254,7 @@ export default function EditProductPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 w-full">
+    <div className="max-w-7xl mx-auto space-y-6 w-full">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -228,20 +295,6 @@ export default function EditProductPage() {
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 placeholder="Enter product name"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Slug
-              </label>
-              <input
-                type="text"
-                name="slug"
-                value={formData.slug}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="product-slug"
               />
             </div>
 
@@ -326,6 +379,140 @@ export default function EditProductPage() {
           </div>
         </div>
 
+        {/* Inventory - Batch/Branch */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">Inventory</h2>
+            <div className="inline-flex rounded-md shadow-sm" role="group">
+              <button type="button" onClick={() => setStockView('batch')} className={`px-4 py-2 text-sm font-medium border ${stockView==='batch' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-50'}`}>By Batch</button>
+              <button type="button" onClick={() => setStockView('branch')} className={`px-4 py-2 text-sm font-medium border -ml-px ${stockView==='branch' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-50'}`}>By Branch</button>
+            </div>
+          </div>
+
+          {stockView === 'branch' ? (
+            <div className="mt-2 overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {branchStocks.map((row, idx) => (
+                    <tr key={idx}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{row.branches?.name || row.branch_id}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{row.branches?.code || '—'}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">{row.stock}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <>
+              <div className="mt-2 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MFG</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXP</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-4 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {batches.map((b, idx) => (
+                      <tr key={b.id || idx}>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <input
+                            type="text"
+                            value={b.batch_number}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, batch_number: e.target.value }: x))}
+                            className="w-full px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <input
+                            type="number"
+                            min={0}
+                            value={b.quantity_received}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, quantity_received: parseInt(e.target.value||'0',10) }: x))}
+                            className="w-full px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <input
+                            type="number"
+                            min={0}
+                            value={b.quantity_remaining ?? 0}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, quantity_remaining: parseInt(e.target.value||'0',10) }: x))}
+                            className="w-full px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <input
+                            type="date"
+                            value={b.manufacturing_date || ''}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, manufacturing_date: e.target.value }: x))}
+                            className="w-full px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <input
+                            type="date"
+                            value={b.expiry_date || ''}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, expiry_date: e.target.value }: x))}
+                            className="w-full px-2 py-1 border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900">
+                          <select
+                            value={b.status || 'active'}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, status: e.target.value as any }: x))}
+                            className="w-full px-2 py-1 border border-gray-300 rounded"
+                          >
+                            <option value="active">Active</option>
+                            <option value="expired">Expired</option>
+                            <option value="recalled">Recalled</option>
+                            <option value="consumed">Consumed</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setBatches(prev => prev.filter((_, i) => i !== idx))}
+                            className="px-3 py-1 text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-3 text-sm text-gray-600">Total remaining stock from batches: <span className="font-semibold">{batches.reduce((s, b) => s + (b.quantity_remaining || b.quantity_received || 0), 0)}</span></div>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const batch_number = await InventoryService.generateBatchNumber(productId);
+                      setBatches(prev => [...prev, { batch_number, quantity_received: 0, quantity_remaining: 0 }]);
+                    }}
+                    className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                  >
+                    Add Batch
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
         {/* Pricing & Inventory */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Pricing & Inventory</h2>
@@ -333,12 +520,12 @@ export default function EditProductPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Regular Price (BDT) *
+                Purchase Price (PP) *
               </label>
               <input
                 type="number"
-                name="price_regular"
-                value={formData.price_regular}
+                name="pp"
+                value={formData.pp}
                 onChange={handleInputChange}
                 required
                 min="0"
@@ -350,13 +537,14 @@ export default function EditProductPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Offer Price (BDT)
+                Trade Price (TP) *
               </label>
               <input
                 type="number"
-                name="price_offer"
-                value={formData.price_offer}
+                name="tp"
+                value={formData.tp}
                 onChange={handleInputChange}
+                required
                 min="0"
                 step="0.01"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -366,13 +554,14 @@ export default function EditProductPage() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Purchase Price (BDT)
+                Maximum Retail Price (MRP) *
               </label>
               <input
                 type="number"
-                name="price_purchase"
-                value={formData.price_purchase}
+                name="mrp"
+                value={formData.mrp}
                 onChange={handleInputChange}
+                required
                 min="0"
                 step="0.01"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -388,7 +577,7 @@ export default function EditProductPage() {
                 type="number"
                 name="stock"
                 value={formData.stock}
-                onChange={handleInputChange}
+                readOnly
                 required
                 min="0"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
@@ -431,9 +620,9 @@ export default function EditProductPage() {
           </div>
         </div>
 
-        {/* Categories & Keywords */}
+        {/* Categories */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Categories & Keywords</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Categories</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -467,45 +656,7 @@ export default function EditProductPage() {
             </div>
           </div>
 
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Keywords
-            </label>
-            <div className="flex space-x-2 mb-3">
-              <input
-                type="text"
-                value={keywordInput}
-                onChange={(e) => setKeywordInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddKeyword())}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Add keyword and press Enter"
-              />
-              <button
-                type="button"
-                onClick={handleAddKeyword}
-                className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-              >
-                Add
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {formData.keywords.map((keyword, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-purple-100 text-purple-800"
-                >
-                  {keyword}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveKeyword(keyword)}
-                    className="ml-2 text-purple-600 hover:text-purple-800"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          </div>
+          
         </div>
 
         {/* Settings */}
@@ -549,6 +700,19 @@ export default function EditProductPage() {
               />
               <label className="ml-2 block text-sm text-gray-900">
                 Flash Sale
+              </label>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="flat_rate"
+                checked={formData.flat_rate}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+              />
+              <label className="ml-2 block text-sm text-gray-900">
+                Flat Rate Product
               </label>
             </div>
           </div>

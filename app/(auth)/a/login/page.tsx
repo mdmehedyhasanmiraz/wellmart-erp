@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/user';
+import { testConnection, testAuthConnection } from '@/lib/connectionTest';
+import { testUserTable } from '@/lib/userTableTest';
+import { checkEnvironment } from '@/lib/envCheck';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -14,22 +17,60 @@ export default function AdminLoginPage() {
   const { signIn } = useAuth();
   const router = useRouter();
 
+  useEffect(() => {
+    // Check environment on component mount
+    const envCheck = checkEnvironment();
+    if (!envCheck.hasUrl || !envCheck.hasKey) {
+      setError('Configuration error: Missing Supabase credentials');
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const { error } = await signIn(email, password, 'admin');
+      console.log('Testing connections before login...');
+      
+      // Test connections first
+      const [dbTest, authTest, userTableTest] = await Promise.all([
+        testConnection(),
+        testAuthConnection(),
+        testUserTable()
+      ]);
 
-      if (error) {
-        setError(error.message);
+      if (!dbTest.success) {
+        console.warn('Database connection issue:', dbTest.error);
+      }
+      
+      if (!userTableTest.success) {
+        console.warn('User table access issue:', userTableTest.error);
+      }
+      
+      if (!authTest.success) {
+        console.error('Auth connection issue:', authTest.error);
+        setError(`Authentication service unavailable: ${authTest.error}`);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Attempting admin login...');
+      const result = await signIn(email, password, 'admin');
+
+      if (result.success) {
+        console.log('Login successful, redirecting...');
+        // Add small delay to ensure profile is loaded
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 500);
       } else {
-        // Redirect to admin dashboard
-        router.push('/admin/dashboard');
+        console.error('Login failed:', result.error);
+        setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      console.error('Unexpected error:', err);
+      setError('Network error or timeout occurred. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -21,6 +21,7 @@ import {
   Building2,
   BarChart3,
   Settings as SettingsIcon,
+  Briefcase,
 } from 'lucide-react';
 
 const adminMenuItems = [
@@ -68,6 +69,11 @@ const adminMenuItems = [
     name: 'Employees',
     href: '/admin/employees',
     icon: <UserCog className="w-5 h-5" />,
+  },
+  {
+    name: 'Designations',
+    href: '/admin/designations',
+    icon: <Briefcase className="w-5 h-5" />,
   },
   {
     name: 'Allowances',
@@ -127,15 +133,11 @@ export default function AdminSidebar() {
     },
     {
       title: 'Management',
-      items: adminMenuItems.slice(7, 12), // Customers, Employees, Suppliers, Users, Branches
+      items: adminMenuItems.slice(7, 13), // Parties, Employees, Designations, Allowances, Suppliers, Users
     },
     {
       title: 'Configuration',
-      items: adminMenuItems.slice(12, 15), // Categories, Companies, Reports
-    },
-    {
-      title: 'System',
-      items: adminMenuItems.slice(15), // Settings
+      items: adminMenuItems.slice(13), // Branches, Reports, Settings
     },
   ];
 

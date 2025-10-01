@@ -16,11 +16,12 @@ export default function RoleProtectedRoute({
   allowedRoles, 
   fallbackRoute = '/login' 
 }: RoleProtectedRouteProps) {
-  const { user, userProfile, loading } = useAuth();
+  const { user, userProfile, loading, profileLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading) {
+    // Only redirect if we have definitive information
+    if (!loading && !profileLoading) {
       if (!user) {
         router.push(fallbackRoute);
         return;
@@ -33,8 +34,9 @@ export default function RoleProtectedRoute({
         return;
       }
     }
-  }, [user, userProfile, loading, allowedRoles, fallbackRoute, router]);
+  }, [user, userProfile, loading, profileLoading, allowedRoles, fallbackRoute, router]);
 
+  // Show loading only for initial auth check
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -48,6 +50,27 @@ export default function RoleProtectedRoute({
 
   if (!user) {
     return null;
+  }
+
+  // If profile is still loading, show children but with a warning
+  if (profileLoading) {
+    return (
+      <>
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-600 border-t-transparent"></div>
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-yellow-700">
+                Loading user permissions...
+              </p>
+            </div>
+          </div>
+        </div>
+        {children}
+      </>
+    );
   }
 
   if (userProfile && !allowedRoles.includes(userProfile.role)) {

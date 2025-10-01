@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { CreateEmployeeData, Employee } from '@/types/user';
+import { CreateEmployeeData, Employee, Designation } from '@/types/user';
 import { EmployeeService } from '@/lib/employeeService';
+import { DesignationService } from '@/lib/designationService';
 
 export default function EditEmployeePage() {
   const router = useRouter();
@@ -11,9 +12,11 @@ export default function EditEmployeePage() {
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [loadingDesignations, setLoadingDesignations] = useState(true);
   const [form, setForm] = useState<CreateEmployeeData>({
     name: '',
-    designation: '',
+    designation_id: '',
     employee_code: '',
     branch_id: '',
     phone: '',
@@ -25,23 +28,37 @@ export default function EditEmployeePage() {
 
   useEffect(() => {
     if (!id) return;
-    (async () => {
-      const emp = await EmployeeService.getById(id);
-      if (emp) {
-        setForm({
-          name: emp.name,
-          designation: emp.designation,
-          employee_code: emp.employee_code,
-          branch_id: emp.branch_id,
-          phone: emp.phone,
-          email: emp.email,
-          joined_date: emp.joined_date,
-          resigned_date: emp.resigned_date,
-          is_active: emp.is_active,
-        });
+    
+    const loadData = async () => {
+      try {
+        // Load designations
+        const designationData = await DesignationService.getAll();
+        setDesignations(designationData);
+        setLoadingDesignations(false);
+
+        // Load employee data
+        const emp = await EmployeeService.getById(id);
+        if (emp) {
+          setForm({
+            name: emp.name,
+            designation_id: emp.designation_id || '',
+            employee_code: emp.employee_code,
+            branch_id: emp.branch_id || '',
+            phone: emp.phone || '',
+            email: emp.email || '',
+            joined_date: emp.joined_date || '',
+            resigned_date: emp.resigned_date || '',
+            is_active: emp.is_active,
+          });
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
-    })();
+    };
+
+    loadData();
   }, [id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -86,7 +103,23 @@ export default function EditEmployeePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Designation</label>
-              <input name="designation" value={form.designation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+              <select 
+                name="designation_id" 
+                value={form.designation_id} 
+                onChange={handleChange}
+                disabled={loadingDesignations}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">Select a designation</option>
+                {designations.map((designation) => (
+                  <option key={designation.id} value={designation.id}>
+                    {designation.name} ({designation.code}) - {designation.department || 'No Department'}
+                  </option>
+                ))}
+              </select>
+              {loadingDesignations && (
+                <p className="mt-1 text-sm text-gray-500">Loading designations...</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Employee Code *</label>

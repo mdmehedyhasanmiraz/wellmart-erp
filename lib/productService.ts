@@ -9,7 +9,10 @@ import {
   UpdateCategoryData,
   Company,
   CreateCompanyData,
-  UpdateCompanyData
+  UpdateCompanyData,
+  ProductBatch,
+  CreateProductBatchData,
+  UpdateProductBatchData
 } from '@/types/user';
 
 export class ProductService {
@@ -351,6 +354,86 @@ export class ProductService {
     }
   }
 
+  // =========================
+  // Product Batches
+  // =========================
+
+  static async getBatchesByProduct(productId: string): Promise<ProductBatch[]> {
+    try {
+      const { data, error } = await supabase
+        .from('product_batches')
+        .select('*')
+        .eq('product_id', productId)
+        .order('added_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching product batches:', error);
+        return [];
+      }
+      return data ?? [];
+    } catch (error) {
+      console.error('Error in getBatchesByProduct:', error);
+      return [];
+    }
+  }
+
+  static async upsertBatch(batch: CreateProductBatchData & { id?: string }): Promise<ProductBatch | null> {
+    try {
+      const { data, error } = await supabase
+        .from('product_batches')
+        .upsert(batch, { onConflict: 'id' })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error upserting product batch:', error);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error in upsertBatch:', error);
+      return null;
+    }
+  }
+
+  static async updateBatch(id: string, updates: UpdateProductBatchData): Promise<ProductBatch | null> {
+    try {
+      const { data, error } = await supabase
+        .from('product_batches')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating product batch:', error);
+        return null;
+      }
+      return data;
+    } catch (error) {
+      console.error('Error in updateBatch:', error);
+      return null;
+    }
+  }
+
+  static async deleteBatch(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('product_batches')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting product batch:', error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error in deleteBatch:', error);
+      return false;
+    }
+  }
+
   // Category operations
   static async getAllCategories(): Promise<Category[]> {
     try {
@@ -546,7 +629,12 @@ export class ProductService {
     return Math.round(((regularPrice - offerPrice) / regularPrice) * 100);
   }
 
-  static formatPrice(price: number): string {
+  static formatPrice(price: number | null | undefined): string {
+    // Handle null, undefined, or invalid price values
+    if (price === null || price === undefined || isNaN(price)) {
+      return '৳0.00';
+    }
+    
     return `৳${price.toLocaleString('en-BD', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2

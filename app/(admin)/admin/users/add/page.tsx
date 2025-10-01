@@ -13,8 +13,9 @@ export default function AddUserPage() {
     name: '',
     email: '',
     phone: '',
-    role: 'mpo',
+    role: 'employee',
     branch_id: '',
+    password: '',
   });
 
   useEffect(() => {
@@ -61,6 +62,10 @@ export default function AddUserPage() {
               <input name="email" value={form.email} onChange={handleChange} required type="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+              <input name="password" value={form.password || ''} onChange={handleChange} required type="password" minLength={6} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
               <input name="phone" value={form.phone} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
@@ -69,7 +74,7 @@ export default function AddUserPage() {
               <select name="role" value={form.role} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                 <option value="admin">Admin</option>
                 <option value="branch">Branch</option>
-                <option value="mpo">MPO</option>
+                <option value="employee">Employee</option>
               </select>
             </div>
             <div>

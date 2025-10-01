@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types/user';
+import { testConnection, testAuthConnection } from '@/lib/connectionTest';
 
 export default function MPOLoginPage() {
   const [email, setEmail] = useState('');
@@ -20,16 +21,41 @@ export default function MPOLoginPage() {
     setError('');
 
     try {
-      const { error } = await signIn(email, password, 'employee');
+      console.log('Testing connections before login...');
+      
+      // Test connections first
+      const [dbTest, authTest] = await Promise.all([
+        testConnection(),
+        testAuthConnection()
+      ]);
 
-      if (error) {
-        setError(error.message);
+      if (!dbTest.success) {
+        console.warn('Database connection issue:', dbTest.error);
+      }
+      
+      if (!authTest.success) {
+        console.error('Auth connection issue:', authTest.error);
+        setError(`Authentication service unavailable: ${authTest.error}`);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Attempting employee login...');
+      const result = await signIn(email, password, 'employee');
+
+      if (result.success) {
+        console.log('Login successful, redirecting...');
+        // Add small delay to ensure profile is loaded
+        setTimeout(() => {
+          router.push('/employee/dashboard');
+        }, 500);
       } else {
-        // Redirect to MPO dashboard
-        router.push('/employee/dashboard');
+        console.error('Login failed:', result.error);
+        setError(result.error || 'Login failed. Please check your credentials.');
       }
     } catch (err) {
-      setError('An unexpected error occurred');
+      console.error('Unexpected error:', err);
+      setError('Network error or timeout occurred. Please try again.');
     } finally {
       setLoading(false);
     }

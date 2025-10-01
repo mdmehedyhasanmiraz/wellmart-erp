@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ProductService } from '@/lib/productService';
+import { InventoryService } from '@/lib/inventoryService';
 import { ProductWithDetails } from '@/types/user';
 
 export default function ProductDetailsPage() {
@@ -12,6 +13,8 @@ export default function ProductDetailsPage() {
   
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<ProductWithDetails | null>(null);
+  const [batches, setBatches] = useState<any[]>([]);
+  const [totalStock, setTotalStock] = useState<number>(0);
 
   useEffect(() => {
     if (productId) {
@@ -23,6 +26,12 @@ export default function ProductDetailsPage() {
     try {
       const data = await ProductService.getProductById(productId);
       setProduct(data);
+      const [batchRows, total] = await Promise.all([
+        InventoryService.getBatchesByProduct(productId),
+        InventoryService.getTotalStockForProduct(productId),
+      ]);
+      setBatches(batchRows || []);
+      setTotalStock(total);
     } catch (error) {
       console.error('Error fetching product:', error);
       alert('Failed to load product data');
@@ -154,25 +163,20 @@ export default function ProductDetailsPage() {
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Pricing Information</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                             <div>
-                 <label className="block text-sm font-medium text-gray-500 mb-1">Regular Price (BDT)</label>
-                 <p className="text-2xl font-bold text-gray-900">{ProductService.formatPrice(product.price_regular)}</p>
-               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Purchase Price (PP)</label>
+                <p className="text-2xl font-bold text-gray-900">{ProductService.formatPrice(product.pp)}</p>
+              </div>
               
-              {product.price_offer && product.price_offer !== product.price_regular && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Offer Price (BDT)</label>
-                  <p className="text-2xl font-bold text-green-600">{ProductService.formatPrice(product.price_offer)}</p>
-                  <p className="text-sm text-gray-500">
-                    Save {ProductService.formatPrice(product.price_regular - product.price_offer)}
-                  </p>
-                </div>
-              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Trade Price (TP)</label>
+                <p className="text-2xl font-bold text-blue-600">{ProductService.formatPrice(product.tp)}</p>
+              </div>
               
-                             <div>
-                 <label className="block text-sm font-medium text-gray-500 mb-1">Purchase Price (BDT)</label>
-                 <p className="text-xl font-semibold text-gray-900">{ProductService.formatPrice(product.price_purchase || 0)}</p>
-               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1">Maximum Retail Price (MRP)</label>
+                <p className="text-2xl font-bold text-green-600">{ProductService.formatPrice(product.mrp)}</p>
+              </div>
             </div>
           </div>
 
@@ -184,19 +188,19 @@ export default function ProductDetailsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Current Stock</label>
                 <p className={`text-2xl font-bold ${
-                  product.stock === 0 ? 'text-red-600' :
-                  product.stock < 100 ? 'text-yellow-600' :
+                  totalStock === 0 ? 'text-red-600' :
+                  totalStock < 100 ? 'text-yellow-600' :
                   'text-green-600'
                 }`}>
-                  {product.stock}
+                  {totalStock}
                 </p>
                 <p className={`text-sm ${
-                  product.stock === 0 ? 'text-red-500' :
-                  product.stock < 100 ? 'text-yellow-500' :
+                  totalStock === 0 ? 'text-red-500' :
+                  totalStock < 100 ? 'text-yellow-500' :
                   'text-green-500'
                 }`}>
-                  {product.stock === 0 ? 'Out of Stock' :
-                   product.stock < 100 ? 'Low Stock' :
+                  {totalStock === 0 ? 'Out of Stock' :
+                   totalStock < 100 ? 'Low Stock' :
                    'In Stock'}
                 </p>
               </div>
@@ -210,6 +214,58 @@ export default function ProductDetailsPage() {
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Batches */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Batches</h2>
+              <button
+                onClick={() => router.push(`/admin/products/${productId}/edit`)}
+                className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-900"
+              >
+                Manage Batches
+              </button>
+            </div>
+            {batches.length === 0 ? (
+              <div className="text-gray-500">No batches for this product.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MFG</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXP</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {batches.map((b) => (
+                      <tr key={b.id}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{b.batch_number}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{b.quantity_received}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{b.quantity_remaining}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{b.manufacturing_date ? new Date(b.manufacturing_date).toLocaleDateString() : '—'}</td>
+                        <td className="px-4 py-2 text-sm text-gray-900">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '—'}</td>
+                        <td className="px-4 py-2 text-sm">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            b.status === 'active' ? 'bg-green-100 text-green-800' :
+                            b.status === 'expired' ? 'bg-red-100 text-red-800' :
+                            b.status === 'recalled' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {b.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Keywords */}
@@ -288,6 +344,17 @@ export default function ProductDetailsPage() {
                     : 'bg-gray-100 text-gray-800'
                 }`}>
                   {product.flash_sale ? 'Yes' : 'No'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-500">Flat Rate</span>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  product.flat_rate
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {product.flat_rate ? 'Yes' : 'No'}
                 </span>
               </div>
             </div>

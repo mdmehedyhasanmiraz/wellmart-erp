@@ -1,16 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmployeeService } from '@/lib/employeeService';
-import { CreateEmployeeData } from '@/types/user';
+import { DesignationService } from '@/lib/designationService';
+import { CreateEmployeeData, Designation } from '@/types/user';
 
 export default function AddEmployeePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [designations, setDesignations] = useState<Designation[]>([]);
+  const [loadingDesignations, setLoadingDesignations] = useState(true);
   const [form, setForm] = useState<CreateEmployeeData>({
     name: '',
-    designation: '',
+    designation_id: '',
     employee_code: '',
     branch_id: '',
     phone: '',
@@ -19,6 +22,21 @@ export default function AddEmployeePage() {
     resigned_date: '',
     is_active: true,
   });
+
+  useEffect(() => {
+    const loadDesignations = async () => {
+      try {
+        const data = await DesignationService.getAll();
+        setDesignations(data);
+      } catch (error) {
+        console.error('Error loading designations:', error);
+      } finally {
+        setLoadingDesignations(false);
+      }
+    };
+
+    loadDesignations();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -54,7 +72,23 @@ export default function AddEmployeePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Designation</label>
-              <input name="designation" value={form.designation} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+              <select 
+                name="designation_id" 
+                value={form.designation_id} 
+                onChange={handleChange}
+                disabled={loadingDesignations}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">Select a designation</option>
+                {designations.map((designation) => (
+                  <option key={designation.id} value={designation.id}>
+                    {designation.name} ({designation.code}) - {designation.department || 'No Department'}
+                  </option>
+                ))}
+              </select>
+              {loadingDesignations && (
+                <p className="mt-1 text-sm text-gray-500">Loading designations...</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Employee Code *</label>

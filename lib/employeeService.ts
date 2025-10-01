@@ -5,7 +5,10 @@ export class EmployeeService {
   static async getAll(): Promise<Employee[]> {
     const { data, error } = await supabase
       .from('employees')
-      .select('*')
+      .select(`
+        *,
+        designation:designation_id(id, name, code, level, department)
+      `)
       .order('created_at', { ascending: false });
     if (error) {
       console.error('Error fetching employees:', error);
@@ -17,7 +20,10 @@ export class EmployeeService {
   static async getById(id: string): Promise<Employee | null> {
     const { data, error } = await supabase
       .from('employees')
-      .select('*')
+      .select(`
+        *,
+        designation:designation_id(id, name, code, level, department)
+      `)
       .eq('id', id)
       .single();
     if (error) {
