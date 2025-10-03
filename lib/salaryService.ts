@@ -64,6 +64,32 @@ export type PayrollRunItem = {
   note: string | null
 }
 
+// Advances
+export type AdvancePayload = {
+  employee_id: string
+  branch_id?: string | null
+  approved_on?: string
+  principal: number
+  balance?: number
+  monthly_installment?: number
+  installments_remaining?: number
+  note?: string
+}
+
+export type SalaryAdvance = {
+  id: string
+  employee_id: string
+  branch_id: string | null
+  approved_on: string
+  principal: number
+  balance: number
+  monthly_installment: number
+  installments_remaining: number | null
+  note: string | null
+  created_at: string
+  updated_at: string
+}
+
 export class SalaryService {
   // Profiles
   static async getProfilesByEmployee(employeeId: string): Promise<SalaryProfile[]> {
@@ -152,32 +178,6 @@ export class SalaryService {
       return false
     }
     return true
-  }
-
-  // Advances
-  type AdvancePayload = {
-    employee_id: string
-    branch_id?: string | null
-    approved_on?: string
-    principal: number
-    balance?: number
-    monthly_installment?: number
-    installments_remaining?: number
-    note?: string
-  }
-
-  export type SalaryAdvance = {
-    id: string
-    employee_id: string
-    branch_id: string | null
-    approved_on: string
-    principal: number
-    balance: number
-    monthly_installment: number
-    installments_remaining: number | null
-    note: string | null
-    created_at: string
-    updated_at: string
   }
 
   static async createAdvance(payload: AdvancePayload): Promise<boolean> {
