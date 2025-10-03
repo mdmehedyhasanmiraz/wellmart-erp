@@ -15,7 +15,7 @@ export default function SalariesPage() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      const emps = (await EmployeeService.getAll()).map((e: any) => ({ id: e.id, name: e.name, employee_code: e.employee_code }))
+      const emps = (await EmployeeService.getAll()).map((e: { id: string; name: string; employee_code: string }) => ({ id: e.id, name: e.name, employee_code: e.employee_code }))
       const result: Record<string, SalaryProfile[]> = {}
       for (const emp of emps) {
         result[emp.id] = await SalaryService.getProfilesByEmployee(emp.id)

@@ -25,7 +25,9 @@ export const testUserTable = async (): Promise<{ success: boolean; error?: strin
   }
 };
 
-export const testUserById = async (userId: string): Promise<{ success: boolean; error?: string; user?: any }> => {
+type BasicUser = { id: string; email: string; name: string; role: string; is_active: boolean }
+
+export const testUserById = async (userId: string): Promise<{ success: boolean; error?: string; user?: BasicUser }> => {
   try {
     console.log(`Testing user fetch by ID: ${userId}`);
     

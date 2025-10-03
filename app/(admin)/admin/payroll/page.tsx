@@ -6,7 +6,7 @@ import { SalaryService, type PayrollRun } from '@/lib/salaryService'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function PayrollPage() {
-  const { user } = useAuth() as any
+  const { user } = useAuth()
   const [runs, setRuns] = useState<PayrollRun[]>([])
   const [loading, setLoading] = useState(true)
 

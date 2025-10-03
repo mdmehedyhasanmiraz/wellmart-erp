@@ -5,10 +5,26 @@ import { useRouter } from 'next/navigation'
 import { SalaryService } from '@/lib/salaryService'
 import { EmployeeService } from '@/lib/employeeService'
 
+type EmployeeLite = { id: string; name: string; employee_code: string }
+type NewSalaryForm = {
+  employee_id: string
+  effective_from: string
+  currency: string
+  monthly_gross: number
+  monthly_basic: number
+  house_rent_percent: number
+  medical_allowance: number
+  conveyance_allowance: number
+  pf_employee_percent: number
+  pf_employer_percent: number
+  tax_monthly: number
+  is_active: boolean
+}
+
 export default function NewSalaryProfilePage() {
   const router = useRouter()
-  const [employees, setEmployees] = useState<any[]>([])
-  const [form, setForm] = useState<any>({
+  const [employees, setEmployees] = useState<EmployeeLite[]>([])
+  const [form, setForm] = useState<NewSalaryForm>({
     employee_id: '',
     effective_from: new Date().toISOString().slice(0, 10),
     currency: 'BDT',
@@ -25,7 +41,7 @@ export default function NewSalaryProfilePage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    EmployeeService.getAll().then((list: any[]) => setEmployees(list))
+    EmployeeService.getAll().then((list) => setEmployees(list.map((e: any) => ({ id: e.id, name: e.name, employee_code: e.employee_code }))))
   }, [])
 
   async function onSubmit(e: React.FormEvent) {

@@ -4,10 +4,18 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SalaryService } from '@/lib/salaryService'
 
+type NewRunForm = {
+  branch_id: string | null
+  period_year: number
+  period_month: number
+  from_date: string
+  to_date: string
+}
+
 export default function NewPayrollRunPage() {
   const router = useRouter()
   const today = new Date()
-  const [form, setForm] = useState<any>({
+  const [form, setForm] = useState<NewRunForm>({
     branch_id: null,
     period_year: today.getFullYear(),
     period_month: today.getMonth() + 1,

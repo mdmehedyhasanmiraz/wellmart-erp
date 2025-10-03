@@ -1,16 +1,18 @@
 // Simple in-memory cache for user profiles
+import type { UserProfile } from '@/types/user'
+
 class UserProfileCache {
-  private cache = new Map<string, { profile: any; timestamp: number }>();
+  private cache = new Map<string, { profile: UserProfile; timestamp: number }>();
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  set(userId: string, profile: any): void {
+  set(userId: string, profile: UserProfile): void {
     this.cache.set(userId, {
       profile,
       timestamp: Date.now()
     });
   }
 
-  get(userId: string): any | null {
+  get(userId: string): UserProfile | null {
     const cached = this.cache.get(userId);
     if (!cached) return null;
 

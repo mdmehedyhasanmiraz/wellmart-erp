@@ -80,7 +80,7 @@ export default function RoleProtectedRoute({
           <div className="text-red-500 text-6xl mb-4">🚫</div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
           <p className="text-gray-600 mb-4">
-            You don't have permission to access this page.
+            You don&apos;t have permission to access this page.
           </p>
           <button
             onClick={() => router.push(userProfile.dashboard_route)}

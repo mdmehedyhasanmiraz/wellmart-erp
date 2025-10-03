@@ -32,7 +32,10 @@ export class UserService {
           .eq('is_active', true)
           .single();
 
-        const { data, error } = await Promise.race([simpleQueryPromise, timeoutPromise]) as any;
+        const { data, error } = await Promise.race([simpleQueryPromise, timeoutPromise]) as {
+          data: Pick<User, 'id' | 'name' | 'email' | 'role' | 'branch_id' | 'is_active' | 'created_at' | 'updated_at'> | null,
+          error: { message?: string } | null
+        };
 
         if (error) {
           console.error(`Error fetching user profile (attempt ${attempt}/${maxRetries}):`, error);
@@ -76,7 +79,7 @@ export class UserService {
                 .eq('id', data.branch_id)
                 .single();
               
-              const { data: branchData } = await Promise.race([branchQueryPromise, branchTimeoutPromise]) as any;
+              const { data: branchData } = await Promise.race([branchQueryPromise, branchTimeoutPromise]) as { data: { name: string } | null };
               
               const profile = {
                 ...data,
@@ -303,7 +306,10 @@ export class UserService {
         body: JSON.stringify(userData),
       });
       if (!res.ok) {
-        const msg = await res.json().catch(() => ({} as any));
+        let msg: unknown = null;
+        try {
+          msg = await res.json();
+        } catch {}
         console.error('Admin user creation failed:', msg?.error || res.statusText);
         return null;
       }
@@ -392,8 +398,8 @@ export class UserService {
         return '/admin/dashboard';
       case 'branch':
         return '/branch/dashboard';
-      case 'mpo':
-        return '/mpo/dashboard';
+      case 'employee':
+        return '/employee/dashboard';
       default:
         return '/';
     }
@@ -425,7 +431,7 @@ export class UserService {
           'view_branch_customers',
           'view_branch_suppliers'
         ];
-      case 'mpo':
+      case 'employee':
         return [
           'view_own_profile',
           'view_assigned_customers',

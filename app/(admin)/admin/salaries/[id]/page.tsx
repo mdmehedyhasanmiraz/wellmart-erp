@@ -45,7 +45,7 @@ export default function ManageSalaryPage() {
         amount_value: 0,
         taxable: true,
         sort_order: (components[components.length - 1]?.sort_order || 0) + 1,
-      } as any,
+      } as SalaryComponent,
     ])
   }
 

@@ -135,7 +135,9 @@ export class SalaryService {
   static async upsertComponents(profileId: string, components: Partial<SalaryComponent>[]): Promise<boolean> {
     // Attach profileId and upsert by id when present
     const rows = components.map((c) => ({ ...c, profile_id: profileId }))
-    const { error } = await supabase.from('employee_salary_components').upsert(rows as any, { onConflict: 'id' })
+    const { error } = await supabase
+      .from('employee_salary_components')
+      .upsert(rows as unknown as Record<string, unknown>[], { onConflict: 'id' })
     if (error) {
       console.error('upsertComponents error', error)
       return false
@@ -153,7 +155,32 @@ export class SalaryService {
   }
 
   // Advances
-  static async createAdvance(payload: any): Promise<boolean> {
+  type AdvancePayload = {
+    employee_id: string
+    branch_id?: string | null
+    approved_on?: string
+    principal: number
+    balance?: number
+    monthly_installment?: number
+    installments_remaining?: number
+    note?: string
+  }
+
+  export type SalaryAdvance = {
+    id: string
+    employee_id: string
+    branch_id: string | null
+    approved_on: string
+    principal: number
+    balance: number
+    monthly_installment: number
+    installments_remaining: number | null
+    note: string | null
+    created_at: string
+    updated_at: string
+  }
+
+  static async createAdvance(payload: AdvancePayload): Promise<boolean> {
     const { error } = await supabase
       .from('employee_salary_advances')
       .insert({ ...payload, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
@@ -164,13 +191,17 @@ export class SalaryService {
     return true
   }
 
-  static async listAdvances(employeeId: string): Promise<any[]> {
-    const { data, error } = await supabase.from('employee_salary_advances').select('*').eq('employee_id', employeeId).order('approved_on', { ascending: false })
+  static async listAdvances(employeeId: string): Promise<SalaryAdvance[]> {
+    const { data, error } = await supabase
+      .from('employee_salary_advances')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('approved_on', { ascending: false })
     if (error) {
       console.error('listAdvances error', error)
       return []
     }
-    return data as any[]
+    return data as SalaryAdvance[]
   }
 
   // Payroll runs

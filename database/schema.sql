@@ -4,7 +4,7 @@ CREATE TABLE public.users (
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     phone TEXT,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'branch', 'mpo')),
+    role TEXT NOT NULL CHECK (role IN ('admin', 'branch', 'employee')),
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     is_active BOOLEAN DEFAULT true,
     last_login TIMESTAMP WITH TIME ZONE,
@@ -108,7 +108,7 @@ BEGIN
         NEW.id,
         NEW.email,
         COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-        COALESCE(NEW.raw_user_meta_data->>'role', 'mpo'),
+        COALESCE(NEW.raw_user_meta_data->>'role', 'employee'),
         NOW(),
         NOW()
     );

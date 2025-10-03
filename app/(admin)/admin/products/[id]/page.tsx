@@ -13,7 +13,16 @@ export default function ProductDetailsPage() {
   
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<ProductWithDetails | null>(null);
-  const [batches, setBatches] = useState<any[]>([]);
+  type BatchRow = {
+    id: string
+    batch_number: string
+    quantity_received: number
+    quantity_remaining: number
+    manufacturing_date: string | null
+    expiry_date: string | null
+    status: 'active' | 'expired' | 'recalled' | 'consumed'
+  }
+  const [batches, setBatches] = useState<BatchRow[]>([]);
   const [totalStock, setTotalStock] = useState<number>(0);
 
   useEffect(() => {
@@ -30,7 +39,15 @@ export default function ProductDetailsPage() {
         InventoryService.getBatchesByProduct(productId),
         InventoryService.getTotalStockForProduct(productId),
       ]);
-      setBatches(batchRows || []);
+      setBatches((batchRows || []).map((b: any) => ({
+        id: b.id,
+        batch_number: b.batch_number,
+        quantity_received: b.quantity_received,
+        quantity_remaining: b.quantity_remaining,
+        manufacturing_date: b.manufacturing_date ?? null,
+        expiry_date: b.expiry_date ?? null,
+        status: b.status,
+      })) as BatchRow[]);
       setTotalStock(total);
     } catch (error) {
       console.error('Error fetching product:', error);

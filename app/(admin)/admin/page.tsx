@@ -54,7 +54,7 @@ export default function AdminDashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="mt-2">Welcome back! Here's what's happening with your business.</p>
+          <p className="mt-2">Welcome back! Here&apos;s what&apos;s happening with your business.</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-right">
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
                   <p className="text-sm">{product.category?.name || 'No Category'}</p>
                 </div>
                 <div className="text-right">
-                  <p className=" font-medium">{ProductService.formatPrice(product.price_regular)}</p>
+                  <p className=" font-medium">{ProductService.formatPrice(product.tp)}</p>
                   <p className="text-sm">Stock: {product.stock}</p>
                 </div>
                 <div className="flex items-center space-x-2">

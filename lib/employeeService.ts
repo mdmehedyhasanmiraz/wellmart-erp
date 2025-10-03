@@ -2,8 +2,8 @@ import { supabase } from './supabase';
 import { Employee, CreateEmployeeData, UpdateEmployeeData } from '@/types/user';
 
 export class EmployeeService {
-  private static sanitizePayload<T extends Record<string, any>>(payload: T): T {
-    const sanitized: Record<string, any> = { ...payload };
+  private static sanitizePayload<T extends object>(payload: T): T {
+    const mutable: Record<string, unknown> = { ...(payload as unknown as Record<string, unknown>) };
     const optionalStringFields = [
       'designation_id',
       'branch_id',
@@ -16,14 +16,20 @@ export class EmployeeService {
     const dateFields = ['date_of_birth', 'marriage_date', 'joined_date', 'resigned_date'];
 
     optionalStringFields.forEach((field) => {
-      if (sanitized[field] === '') sanitized[field] = null;
+      const current = mutable[field];
+      if (typeof current === 'string' && current === '') {
+        mutable[field] = null;
+      }
     });
 
     dateFields.forEach((field) => {
-      if (!sanitized[field] || sanitized[field] === '') sanitized[field] = null;
+      const current = mutable[field];
+      if (current == null || (typeof current === 'string' && current === '')) {
+        mutable[field] = null;
+      }
     });
 
-    return sanitized as T;
+    return mutable as T;
   }
   static async getAll(): Promise<Employee[]> {
     const { data, error } = await supabase

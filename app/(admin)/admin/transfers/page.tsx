@@ -7,10 +7,12 @@ import { Branch, BranchTransfer } from '@/types/user';
 import { BranchService } from '@/lib/branchService';
 import { InventoryService } from '@/lib/inventoryService';
 
+type TransferStatus = '' | 'pending' | 'approved' | 'completed' | 'cancelled'
+
 export default function TransfersPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchFilter, setBranchFilter] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<TransferStatus>('');
   const [transfers, setTransfers] = useState<BranchTransfer[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -27,7 +29,7 @@ export default function TransfersPage() {
     const loadTransfers = async () => {
       if (!branchFilter) return;
       setLoading(true);
-      const data = await InventoryService.listTransfers({ branchId: branchFilter, status: statusFilter as any });
+      const data = await InventoryService.listTransfers({ branchId: branchFilter, status: statusFilter || undefined });
       setTransfers(data);
       setLoading(false);
     };
@@ -56,7 +58,7 @@ export default function TransfersPage() {
           </div>
           <div>
             <label className="block text-sm text-gray-600 mb-2">Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TransferStatus)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
               <option value="">All</option>
               <option value="pending">Pending</option>

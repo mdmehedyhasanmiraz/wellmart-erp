@@ -70,7 +70,7 @@ export class InventoryService {
         return [];
       }
 
-      const rows = (data as any[]) || [];
+      const rows = (data as unknown as Array<{ branch_id: string; quantity: number; branches?: { id: string; name: string; code: string } }>) || [];
       const byBranch: Record<string, { branch_id: string; stock: number; branches?: { id: string; name: string; code: string } }> = {};
       for (const row of rows) {
         const bid = row.branch_id as string;
@@ -99,7 +99,8 @@ export class InventoryService {
       .eq('branch_id', branchId)
       .single();
     if (error) {
-      if ((error as any).code === 'PGRST116') return null; // no rows
+      // PGRST116 is no rows returned
+      if ((error as { code?: string }).code === 'PGRST116') return null;
       console.error('Error fetching stock:', error);
       return null;
     }
@@ -344,7 +345,7 @@ export class InventoryService {
         .single();
 
       if (error) {
-        if ((error as any).code === 'PGRST116') return null; // no rows
+        if ((error as { code?: string }).code === 'PGRST116') return null; // no rows
         console.error('Error fetching batch stock:', error);
         return null;
       }

@@ -94,7 +94,7 @@ export default function EditProductPage() {
         InventoryService.getBranchStocksForProduct(productId),
       ]);
       setBatches(
-        (data || []).map((b: any) => ({
+        (data || []).map((b: { id?: string; batch_number: string; quantity_received: number; quantity_remaining?: number; manufacturing_date?: string | null; expiry_date?: string | null; supplier_batch_number?: string | null; cost_price?: number | null; status?: ProductBatchInput['status'] }) => ({
           id: b.id,
           batch_number: b.batch_number,
           quantity_received: b.quantity_received,
@@ -473,7 +473,7 @@ export default function EditProductPage() {
                         <td className="px-4 py-2 text-sm text-gray-900">
                           <select
                             value={b.status || 'active'}
-                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, status: e.target.value as any }: x))}
+                            onChange={(e) => setBatches(prev => prev.map((x,i)=> i===idx? { ...x, status: e.target.value as ProductBatchInput['status'] }: x))}
                             className="w-full px-2 py-1 border border-gray-300 rounded"
                           >
                             <option value="active">Active</option>

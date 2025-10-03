@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 export default function PayrollRunPage() {
   const params = useParams() as { id: string }
   const runId = params.id
-  const { userProfile } = useAuth() as any
+  const { userProfile } = useAuth()
   const [run, setRun] = useState<PayrollRun | null>(null)
   const [items, setItems] = useState<PayrollRunItem[]>([])
   const [loading, setLoading] = useState(true)
