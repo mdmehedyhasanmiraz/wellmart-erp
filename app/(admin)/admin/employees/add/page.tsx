@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmployeeService } from '@/lib/employeeService';
 import { DesignationService } from '@/lib/designationService';
-import { CreateEmployeeData, Designation } from '@/types/user';
+import { BranchService } from '@/lib/branchService';
+import { CreateEmployeeData, Designation, Branch } from '@/types/user';
 
 export default function AddEmployeePage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [loadingDesignations, setLoadingDesignations] = useState(true);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(true);
   const [form, setForm] = useState<CreateEmployeeData>({
     name: '',
     designation_id: '',
@@ -18,6 +21,11 @@ export default function AddEmployeePage() {
     branch_id: '',
     phone: '',
     email: '',
+    present_address: '',
+    permanent_address: '',
+    blood_group: '',
+    date_of_birth: '',
+    marriage_date: '',
     joined_date: '',
     resigned_date: '',
     is_active: true,
@@ -34,8 +42,19 @@ export default function AddEmployeePage() {
         setLoadingDesignations(false);
       }
     };
+    const loadBranches = async () => {
+      try {
+        const data = await BranchService.getAll();
+        setBranches(data);
+      } catch (error) {
+        console.error('Error loading branches:', error);
+      } finally {
+        setLoadingBranches(false);
+      }
+    };
 
     loadDesignations();
+    loadBranches();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -96,7 +115,23 @@ export default function AddEmployeePage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-              <input name="branch_id" value={form.branch_id} onChange={handleChange} placeholder="Select branch (ID)" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+              <select
+                name="branch_id"
+                value={form.branch_id}
+                onChange={handleChange}
+                disabled={loadingBranches}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+              >
+                <option value="">Select a branch</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name} ({b.code})
+                  </option>
+                ))}
+              </select>
+              {loadingBranches && (
+                <p className="mt-1 text-sm text-gray-500">Loading branches...</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
@@ -105,6 +140,26 @@ export default function AddEmployeePage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
               <input name="email" value={form.email} onChange={handleChange} type="email" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Present Address</label>
+              <input name="present_address" value={form.present_address || ''} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Permanent Address</label>
+              <input name="permanent_address" value={form.permanent_address || ''} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group</label>
+              <input name="blood_group" value={form.blood_group || ''} onChange={handleChange} placeholder="e.g. A+, O-" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth</label>
+              <input name="date_of_birth" value={form.date_of_birth} onChange={handleChange} type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Marriage Date</label>
+              <input name="marriage_date" value={form.marriage_date} onChange={handleChange} type="date" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Joined</label>

@@ -24,7 +24,7 @@ export default function EmployeesPage() {
     return (
       e.name.toLowerCase().includes(q) ||
       (e.employee_code || '').toLowerCase().includes(q) ||
-      (e.designation || '').toLowerCase().includes(q) ||
+      ((e.designation?.name || '').toLowerCase().includes(q)) ||
       (e.email || '').toLowerCase().includes(q) ||
       (e.phone || '').toLowerCase().includes(q)
     );
@@ -86,7 +86,7 @@ export default function EmployeesPage() {
               {filtered.map(emp => (
                 <tr key={emp.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.name}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.designation || '—'}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.designation?.name || '—'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.employee_code}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.phone || '—'}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.email || '—'}</td>

@@ -209,6 +209,11 @@ CREATE TABLE public.employees (
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
     phone TEXT,
     email TEXT,
+    present_address TEXT,
+    permanent_address TEXT,
+    blood_group TEXT,
+    date_of_birth DATE,
+    marriage_date DATE,
     joined_date DATE,
     resigned_date DATE,
     is_active BOOLEAN NOT NULL DEFAULT true,
@@ -1403,6 +1408,373 @@ DECLARE v_total NUMERIC(12,2);
 BEGIN
     SELECT COALESCE(SUM(total_value),0) INTO v_total FROM public.employee_allowance_items WHERE allowance_id = p_allowance_id;
     UPDATE public.employee_allowances SET total_value = v_total, updated_at = NOW() WHERE id = p_allowance_id;
+END;$$ LANGUAGE plpgsql;
+
+-- =========================
+-- Employee Salary & Payroll
+-- =========================
+
+-- Enums
+CREATE TYPE IF NOT EXISTS salary_component_type AS ENUM ('basic', 'house_rent', 'medical', 'conveyance', 'bonus', 'commission', 'kpi', 'arrear', 'other_earning', 'pf_employee', 'pf_employer', 'tax', 'loan_repayment', 'advance_adjustment', 'other_deduction');
+CREATE TYPE IF NOT EXISTS payroll_status AS ENUM ('draft', 'locked', 'approved', 'paid', 'cancelled');
+
+-- Salary structure/profile per employee (CTC and defaults)
+CREATE TABLE IF NOT EXISTS public.employee_salary_profiles (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE CASCADE,
+    branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+    effective_from DATE NOT NULL,
+    effective_to DATE,
+    currency TEXT NOT NULL DEFAULT 'BDT',
+    monthly_gross NUMERIC(12,2) NOT NULL DEFAULT 0,
+    monthly_basic NUMERIC(12,2) NOT NULL DEFAULT 0,
+    house_rent_percent NUMERIC(6,3) DEFAULT 0,
+    medical_allowance NUMERIC(12,2) DEFAULT 0,
+    conveyance_allowance NUMERIC(12,2) DEFAULT 0,
+    pf_employee_percent NUMERIC(6,3) DEFAULT 0,
+    pf_employer_percent NUMERIC(6,3) DEFAULT 0,
+    tax_monthly NUMERIC(12,2) DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    note TEXT,
+    created_by UUID REFERENCES public.users(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    UNIQUE(employee_id, effective_from)
+);
+
+CREATE INDEX IF NOT EXISTS idx_esp_employee ON public.employee_salary_profiles(employee_id);
+CREATE INDEX IF NOT EXISTS idx_esp_active ON public.employee_salary_profiles(is_active);
+
+-- Detailed components for salary profile breakdown
+CREATE TABLE IF NOT EXISTS public.employee_salary_components (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    profile_id UUID NOT NULL REFERENCES public.employee_salary_profiles(id) ON DELETE CASCADE,
+    component_type salary_component_type NOT NULL,
+    name TEXT,
+    is_earning BOOLEAN NOT NULL,
+    is_percentage BOOLEAN NOT NULL DEFAULT false,
+    percent_value NUMERIC(6,3) DEFAULT 0,
+    amount_value NUMERIC(12,2) DEFAULT 0,
+    taxable BOOLEAN DEFAULT true,
+    sort_order INTEGER DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_esc_profile ON public.employee_salary_components(profile_id);
+CREATE INDEX IF NOT EXISTS idx_esc_type ON public.employee_salary_components(component_type);
+
+-- Employee advances/loans
+CREATE TABLE IF NOT EXISTS public.employee_salary_advances (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE RESTRICT,
+    branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+    approved_on DATE NOT NULL DEFAULT (NOW() AT TIME ZONE 'utc')::date,
+    principal NUMERIC(12,2) NOT NULL CHECK (principal > 0),
+    balance NUMERIC(12,2) NOT NULL CHECK (balance >= 0),
+    monthly_installment NUMERIC(12,2) NOT NULL DEFAULT 0,
+    installments_remaining INTEGER,
+    note TEXT,
+    created_by UUID REFERENCES public.users(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
+);
+
+CREATE INDEX IF NOT EXISTS idx_esa_employee ON public.employee_salary_advances(employee_id);
+CREATE INDEX IF NOT EXISTS idx_esa_balance ON public.employee_salary_advances(balance);
+
+-- Payroll run header
+CREATE TABLE IF NOT EXISTS public.payroll_runs (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+    period_year INTEGER NOT NULL,
+    period_month INTEGER NOT NULL CHECK (period_month BETWEEN 1 AND 12),
+    from_date DATE NOT NULL,
+    to_date DATE NOT NULL,
+    status payroll_status NOT NULL DEFAULT 'draft',
+    total_gross NUMERIC(14,2) NOT NULL DEFAULT 0,
+    total_net NUMERIC(14,2) NOT NULL DEFAULT 0,
+    created_by UUID REFERENCES public.users(id),
+    approved_by UUID REFERENCES public.users(id),
+    paid_by UUID REFERENCES public.users(id),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    UNIQUE (branch_id, period_year, period_month)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_runs_period ON public.payroll_runs(period_year, period_month);
+CREATE INDEX IF NOT EXISTS idx_payroll_runs_status ON public.payroll_runs(status);
+
+-- Payroll items per employee for a run
+CREATE TABLE IF NOT EXISTS public.payroll_run_items (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES public.payroll_runs(id) ON DELETE CASCADE,
+    employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE RESTRICT,
+    profile_id UUID REFERENCES public.employee_salary_profiles(id) ON DELETE SET NULL,
+    working_days INTEGER DEFAULT 0,
+    present_days INTEGER DEFAULT 0,
+    absent_days INTEGER DEFAULT 0,
+    leave_days INTEGER DEFAULT 0,
+    gross_pay NUMERIC(12,2) NOT NULL DEFAULT 0,
+    total_earnings NUMERIC(12,2) NOT NULL DEFAULT 0,
+    total_deductions NUMERIC(12,2) NOT NULL DEFAULT 0,
+    net_pay NUMERIC(12,2) NOT NULL DEFAULT 0,
+    note TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_pri_run ON public.payroll_run_items(run_id);
+CREATE INDEX IF NOT EXISTS idx_pri_employee ON public.payroll_run_items(employee_id);
+
+-- Payroll item components (flattened applied components)
+CREATE TABLE IF NOT EXISTS public.payroll_run_item_components (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    run_item_id UUID NOT NULL REFERENCES public.payroll_run_items(id) ON DELETE CASCADE,
+    component_type salary_component_type NOT NULL,
+    name TEXT,
+    is_earning BOOLEAN NOT NULL,
+    amount NUMERIC(12,2) NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_pric_item ON public.payroll_run_item_components(run_item_id);
+
+-- Adjustments for a run item (manual additions/deductions)
+CREATE TABLE IF NOT EXISTS public.payroll_adjustments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    run_item_id UUID NOT NULL REFERENCES public.payroll_run_items(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    is_earning BOOLEAN NOT NULL,
+    amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_adjust_item ON public.payroll_adjustments(run_item_id);
+
+-- Payslip receipts
+CREATE TABLE IF NOT EXISTS public.payroll_payments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES public.payroll_runs(id) ON DELETE CASCADE,
+    employee_id UUID NOT NULL REFERENCES public.employees(id) ON DELETE RESTRICT,
+    amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
+    method TEXT NOT NULL DEFAULT 'cash',
+    reference TEXT,
+    paid_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
+    paid_by UUID REFERENCES public.users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payroll_payments_run ON public.payroll_payments(run_id);
+CREATE INDEX IF NOT EXISTS idx_payroll_payments_employee ON public.payroll_payments(employee_id);
+
+-- RLS enable
+ALTER TABLE public.employee_salary_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_salary_components ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.employee_salary_advances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_runs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_run_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_run_item_components ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_adjustments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payroll_payments ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY IF NOT EXISTS "Admins manage salary_profiles" ON public.employee_salary_profiles
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY IF NOT EXISTS "Branch view own salary_profiles" ON public.employee_salary_profiles
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.employees e JOIN public.users u ON u.id = auth.uid()
+      WHERE e.id = employee_salary_profiles.employee_id AND u.role = 'branch' AND u.branch_id = e.branch_id
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Admins manage salary_components" ON public.employee_salary_components
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY IF NOT EXISTS "Admins manage salary_advances" ON public.employee_salary_advances
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY IF NOT EXISTS "Branch view own salary_advances" ON public.employee_salary_advances
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.employees e JOIN public.users u ON u.id = auth.uid()
+      WHERE e.id = employee_salary_advances.employee_id AND u.role = 'branch' AND u.branch_id = e.branch_id
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Admins manage payroll_runs" ON public.payroll_runs
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY IF NOT EXISTS "Branch view own payroll_runs" ON public.payroll_runs
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.users u WHERE u.id = auth.uid() AND u.role = 'branch' AND u.branch_id = payroll_runs.branch_id)
+  );
+
+CREATE POLICY IF NOT EXISTS "Admins manage payroll_items" ON public.payroll_run_items
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY IF NOT EXISTS "Branch view payroll_items" ON public.payroll_run_items
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.payroll_runs pr JOIN public.users u ON u.id = auth.uid()
+      WHERE pr.id = payroll_run_items.run_id AND u.role = 'branch' AND u.branch_id = pr.branch_id
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Admins manage payroll_components" ON public.payroll_run_item_components
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY IF NOT EXISTS "Branch view payroll_components" ON public.payroll_run_item_components
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.payroll_runs pr JOIN public.payroll_run_items pri ON pri.run_id = pr.id JOIN public.users u ON u.id = auth.uid()
+      WHERE payroll_run_item_components.run_item_id = pri.id AND u.role = 'branch' AND u.branch_id = pr.branch_id
+    )
+  );
+
+CREATE POLICY IF NOT EXISTS "Admins manage payroll_adjustments" ON public.payroll_adjustments
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+
+CREATE POLICY IF NOT EXISTS "Admins manage payroll_payments" ON public.payroll_payments
+  FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY IF NOT EXISTS "Branch view payroll_payments" ON public.payroll_payments
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.payroll_runs pr JOIN public.users u ON u.id = auth.uid()
+      WHERE pr.id = payroll_payments.run_id AND u.role = 'branch' AND u.branch_id = pr.branch_id
+    )
+  );
+
+-- Triggers for updated_at
+CREATE TRIGGER update_employee_salary_profiles_updated_at BEFORE UPDATE ON public.employee_salary_profiles
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_employee_salary_advances_updated_at BEFORE UPDATE ON public.employee_salary_advances
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+CREATE TRIGGER update_payroll_runs_updated_at BEFORE UPDATE ON public.payroll_runs
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Helper: recalc payroll run totals
+CREATE OR REPLACE FUNCTION public.recalc_payroll_run_totals(p_run_id UUID)
+RETURNS VOID AS $$
+DECLARE v_gross NUMERIC(14,2); v_net NUMERIC(14,2);
+BEGIN
+  SELECT COALESCE(SUM(gross_pay),0), COALESCE(SUM(net_pay),0) INTO v_gross, v_net FROM public.payroll_run_items WHERE run_id = p_run_id;
+  UPDATE public.payroll_runs SET total_gross = v_gross, total_net = v_net, updated_at = NOW() WHERE id = p_run_id;
+END;$$ LANGUAGE plpgsql;
+
+-- Helper: apply profile components to compute payroll item
+CREATE OR REPLACE FUNCTION public.compute_payroll_item(p_run_id UUID, p_employee_id UUID)
+RETURNS UUID AS $$
+DECLARE
+  v_profile RECORD;
+  v_item_id UUID;
+  v_gross NUMERIC(12,2) := 0;
+  v_earn NUMERIC(12,2) := 0;
+  v_ded NUMERIC(12,2) := 0;
+  v_net NUMERIC(12,2) := 0;
+  v_base NUMERIC(12,2) := 0;
+  v_comp RECORD;
+BEGIN
+  SELECT esp.* INTO v_profile
+  FROM public.employee_salary_profiles esp
+  WHERE esp.employee_id = p_employee_id AND esp.is_active = true
+    AND (esp.effective_to IS NULL OR esp.effective_to >= (NOW() AT TIME ZONE 'utc')::date)
+  ORDER BY esp.effective_from DESC
+  LIMIT 1;
+
+  INSERT INTO public.payroll_run_items (run_id, employee_id, profile_id, gross_pay, total_earnings, total_deductions, net_pay)
+  VALUES (p_run_id, p_employee_id, COALESCE(v_profile.id, NULL), 0, 0, 0, 0)
+  RETURNING id INTO v_item_id;
+
+  IF v_profile IS NULL THEN
+    RETURN v_item_id;
+  END IF;
+
+  v_base := v_profile.monthly_basic;
+
+  -- Load components and calculate
+  FOR v_comp IN SELECT * FROM public.employee_salary_components WHERE profile_id = v_profile.id ORDER BY sort_order LOOP
+    DECLARE v_amt NUMERIC(12,2);
+    BEGIN
+      IF v_comp.is_percentage THEN
+        v_amt := ROUND((v_comp.percent_value/100.0) * CASE WHEN v_comp.component_type IN ('house_rent','medical','conveyance','bonus','commission','kpi','arrear','other_earning') THEN v_base ELSE v_profile.monthly_gross END, 2);
+      ELSE
+        v_amt := v_comp.amount_value;
+      END IF;
+
+      INSERT INTO public.payroll_run_item_components (run_item_id, component_type, name, is_earning, amount)
+      VALUES (v_item_id, v_comp.component_type, COALESCE(v_comp.name, v_comp.component_type::text), v_comp.is_earning, v_amt);
+
+      IF v_comp.is_earning THEN
+        v_earn := v_earn + v_amt;
+      ELSE
+        v_ded := v_ded + v_amt;
+      END IF;
+    END;
+  END LOOP;
+
+  v_gross := GREATEST(v_profile.monthly_gross, v_earn);
+  v_net := GREATEST(v_gross - v_ded, 0);
+
+  UPDATE public.payroll_run_items
+  SET gross_pay = v_gross, total_earnings = v_earn, total_deductions = v_ded, net_pay = v_net
+  WHERE id = v_item_id;
+
+  RETURN v_item_id;
+END;$$ LANGUAGE plpgsql;
+
+-- Generate payroll for a run (draft only)
+CREATE OR REPLACE FUNCTION public.generate_payroll(p_run_id UUID)
+RETURNS VOID AS $$
+DECLARE v_run RECORD; v_emp RECORD; v_item UUID;
+BEGIN
+  SELECT * INTO v_run FROM public.payroll_runs WHERE id = p_run_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Payroll run % not found', p_run_id; END IF;
+  IF v_run.status <> 'draft' THEN RAISE EXCEPTION 'Only draft runs can be generated'; END IF;
+
+  DELETE FROM public.payroll_run_items WHERE run_id = p_run_id;
+
+  FOR v_emp IN SELECT id FROM public.employees WHERE is_active = true AND (v_run.branch_id IS NULL OR branch_id = v_run.branch_id) LOOP
+    v_item := public.compute_payroll_item(p_run_id, v_emp.id);
+  END LOOP;
+
+  PERFORM public.recalc_payroll_run_totals(p_run_id);
+END;$$ LANGUAGE plpgsql;
+
+-- Approve payroll
+CREATE OR REPLACE FUNCTION public.approve_payroll(p_run_id UUID, p_actor UUID)
+RETURNS VOID AS $$
+DECLARE v_run RECORD;
+BEGIN
+  SELECT * INTO v_run FROM public.payroll_runs WHERE id = p_run_id FOR UPDATE;
+  IF v_run.status NOT IN ('draft','locked') THEN RAISE EXCEPTION 'Run must be draft/locked to approve'; END IF;
+  UPDATE public.payroll_runs SET status = 'approved', approved_by = p_actor, updated_at = NOW() WHERE id = p_run_id;
+END;$$ LANGUAGE plpgsql;
+
+-- Mark payroll as paid and create payment rows per item (simple full payment)
+CREATE OR REPLACE FUNCTION public.pay_payroll(p_run_id UUID, p_actor UUID, p_method TEXT DEFAULT 'cash')
+RETURNS VOID AS $$
+DECLARE v_run RECORD; v_item RECORD;
+BEGIN
+  SELECT * INTO v_run FROM public.payroll_runs WHERE id = p_run_id FOR UPDATE;
+  IF v_run.status <> 'approved' THEN RAISE EXCEPTION 'Only approved runs can be paid'; END IF;
+
+  FOR v_item IN SELECT * FROM public.payroll_run_items WHERE run_id = p_run_id LOOP
+    INSERT INTO public.payroll_payments (run_id, employee_id, amount, method, paid_by)
+    VALUES (p_run_id, v_item.employee_id, v_item.net_pay, p_method, p_actor);
+  END LOOP;
+
+  UPDATE public.payroll_runs SET status = 'paid', paid_by = p_actor, updated_at = NOW() WHERE id = p_run_id;
+END;$$ LANGUAGE plpgsql;
+
+-- Advance repayment application during payroll generation (optional simple rule)
+CREATE OR REPLACE FUNCTION public.apply_advance_repayments(p_run_id UUID)
+RETURNS VOID AS $$
+DECLARE v_item RECORD; v_adv RECORD; v_pay NUMERIC(12,2);
+BEGIN
+  FOR v_item IN SELECT * FROM public.payroll_run_items WHERE run_id = p_run_id LOOP
+    FOR v_adv IN SELECT * FROM public.employee_salary_advances WHERE employee_id = v_item.employee_id AND balance > 0 LOOP
+      v_pay := LEAST(COALESCE(v_adv.monthly_installment,0), v_adv.balance);
+      IF v_pay > 0 THEN
+        INSERT INTO public.payroll_run_item_components (run_item_id, component_type, name, is_earning, amount)
+        VALUES (v_item.id, 'loan_repayment', 'Advance Repayment', false, v_pay);
+        UPDATE public.employee_salary_advances SET balance = balance - v_pay, updated_at = NOW() WHERE id = v_adv.id;
+        UPDATE public.payroll_run_items SET total_deductions = total_deductions + v_pay, net_pay = GREATEST(net_pay - v_pay, 0) WHERE id = v_item.id;
+      END IF;
+    END LOOP;
+  END LOOP;
+
+  PERFORM public.recalc_payroll_run_totals(p_run_id);
 END;$$ LANGUAGE plpgsql;
 
 -- =========================

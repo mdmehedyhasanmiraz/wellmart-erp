@@ -22,6 +22,7 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   Briefcase,
+  Banknote,
 } from 'lucide-react';
 
 const adminMenuItems = [
@@ -79,6 +80,16 @@ const adminMenuItems = [
     name: 'Allowances',
     href: '/admin/allowances',
     icon: <Receipt className="w-5 h-5" />,
+  },
+  {
+    name: 'Salaries',
+    href: '/admin/salaries',
+    icon: <Banknote className="w-5 h-5" />,
+  },
+  {
+    name: 'Payroll',
+    href: '/admin/payroll',
+    icon: <Banknote className="w-5 h-5" />,
   },
   {
     name: 'Suppliers',

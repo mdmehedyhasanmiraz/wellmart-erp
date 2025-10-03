@@ -25,7 +25,7 @@ export default function BranchLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 text-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-emerald-500 border-t-transparent"></div>
           <p className="text-gray-700 text-lg">Loading Branch Panel...</p>
@@ -39,11 +39,11 @@ export default function BranchLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 text-gray-900">
       <div className="flex">
         <BranchSidebar />
         <main className="flex-1 ml-72">
-          <div className="p-8">
+          <div className="p-8 w-full">
             {children}
           </div>
         </main>

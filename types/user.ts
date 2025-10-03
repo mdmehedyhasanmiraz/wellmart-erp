@@ -334,6 +334,11 @@ export interface Employee {
   branch_id?: string;
   phone?: string;
   email?: string;
+  present_address?: string;
+  permanent_address?: string;
+  blood_group?: string;
+  date_of_birth?: string; // ISO date
+  marriage_date?: string; // ISO date
   joined_date?: string; // ISO date
   resigned_date?: string; // ISO date
   is_active: boolean;
@@ -348,6 +353,11 @@ export interface CreateEmployeeData {
   branch_id?: string;
   phone?: string;
   email?: string;
+  present_address?: string;
+  permanent_address?: string;
+  blood_group?: string;
+  date_of_birth?: string; // ISO date
+  marriage_date?: string; // ISO date
   joined_date?: string; // ISO date
   resigned_date?: string; // ISO date
   is_active?: boolean;
@@ -360,6 +370,11 @@ export interface UpdateEmployeeData {
   branch_id?: string;
   phone?: string;
   email?: string;
+  present_address?: string;
+  permanent_address?: string;
+  blood_group?: string;
+  date_of_birth?: string; // ISO date
+  marriage_date?: string; // ISO date
   joined_date?: string; // ISO date
   resigned_date?: string; // ISO date
   is_active?: boolean;

@@ -51,12 +51,12 @@ export default function BranchDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white">Branch Dashboard</h1>
-          <p className="text-white/70 mt-2">Manage your branch operations and oversee MPO activities.</p>
+          <h1 className="text-3xl font-bold">Branch Dashboard</h1>
+          <p className="mt-2">Manage your branch operations and oversee MPO activities.</p>
         </div>
         <div className="flex items-center space-x-4">
           <div className="text-right">
-            <p className="text-white/70 text-sm">Branch Status</p>
+            <p className="text-sm">Branch Status</p>
             <p className="text-emerald-400 font-medium">Active</p>
           </div>
         </div>

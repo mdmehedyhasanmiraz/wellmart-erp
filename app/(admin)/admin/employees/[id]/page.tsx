@@ -76,6 +76,26 @@ export default function EmployeeDetailsPage() {
             <div className="text-sm text-gray-500">Email</div>
             <div className="text-gray-900">{employee.email || '—'}</div>
           </div>
+          <div className="md:col-span-2">
+            <div className="text-sm text-gray-500">Present Address</div>
+            <div className="text-gray-900">{employee.present_address || '—'}</div>
+          </div>
+          <div className="md:col-span-2">
+            <div className="text-sm text-gray-500">Permanent Address</div>
+            <div className="text-gray-900">{employee.permanent_address || '—'}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Blood Group</div>
+            <div className="text-gray-900">{employee.blood_group || '—'}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Date of Birth</div>
+            <div className="text-gray-900">{employee.date_of_birth ? new Date(employee.date_of_birth).toLocaleDateString() : '—'}</div>
+          </div>
+          <div>
+            <div className="text-sm text-gray-500">Marriage Date</div>
+            <div className="text-gray-900">{employee.marriage_date ? new Date(employee.marriage_date).toLocaleDateString() : '—'}</div>
+          </div>
           <div>
             <div className="text-sm text-gray-500">Joined</div>
             <div className="text-gray-900">{employee.joined_date ? new Date(employee.joined_date).toLocaleDateString() : '—'}</div>

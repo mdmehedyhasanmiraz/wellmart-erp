@@ -2,6 +2,29 @@ import { supabase } from './supabase';
 import { Employee, CreateEmployeeData, UpdateEmployeeData } from '@/types/user';
 
 export class EmployeeService {
+  private static sanitizePayload<T extends Record<string, any>>(payload: T): T {
+    const sanitized: Record<string, any> = { ...payload };
+    const optionalStringFields = [
+      'designation_id',
+      'branch_id',
+      'phone',
+      'email',
+      'present_address',
+      'permanent_address',
+      'blood_group',
+    ];
+    const dateFields = ['date_of_birth', 'marriage_date', 'joined_date', 'resigned_date'];
+
+    optionalStringFields.forEach((field) => {
+      if (sanitized[field] === '') sanitized[field] = null;
+    });
+
+    dateFields.forEach((field) => {
+      if (!sanitized[field] || sanitized[field] === '') sanitized[field] = null;
+    });
+
+    return sanitized as T;
+  }
   static async getAll(): Promise<Employee[]> {
     const { data, error } = await supabase
       .from('employees')
@@ -34,10 +57,11 @@ export class EmployeeService {
   }
 
   static async create(payload: CreateEmployeeData): Promise<Employee | null> {
+    const sanitized = EmployeeService.sanitizePayload(payload);
     const { data, error } = await supabase
       .from('employees')
       .insert({
-        ...payload,
+        ...sanitized,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -51,10 +75,11 @@ export class EmployeeService {
   }
 
   static async update(id: string, payload: UpdateEmployeeData): Promise<Employee | null> {
+    const sanitized = EmployeeService.sanitizePayload(payload);
     const { data, error } = await supabase
       .from('employees')
       .update({
-        ...payload,
+        ...sanitized,
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
