@@ -24,7 +24,7 @@ export default function LoginPage() {
       const { error } = await signIn(email, password);
 
       if (error) {
-        setError(error.message);
+        setError(error);
       } else {
         // Redirect will be handled by the auth context based on user role
         router.push('/');
