@@ -12,7 +12,7 @@ export default function Navigation() {
         <nav className="flex items-center gap-4 text-sm">
           {userProfile?.role === 'admin' && <Link href="/admin" className="hover:text-purple-600">Admin</Link>}
           {userProfile?.role === 'branch' && <Link href="/branch" className="hover:text-purple-600">Branch</Link>}
-          {userProfile?.role === 'mpo' && <Link href="/mpo" className="hover:text-purple-600">MPO</Link>}
+          {userProfile?.role === 'employee' && <Link href="/employee" className="hover:text-purple-600">MPO</Link>}
           <button onClick={() => signOut()} className="px-3 py-1.5 border rounded hover:bg-gray-50">Sign out</button>
         </nav>
       </div>

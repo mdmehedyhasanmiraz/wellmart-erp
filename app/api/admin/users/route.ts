@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     const allowedRoles = new Set(['admin','branch','employee']);
     if (!allowedRoles.has(role)) {
-      return NextResponse.json({ error: `Invalid role '${role}'. Allowed: admin, branch, mpo` }, { status: 400 });
+      return NextResponse.json({ error: `Invalid role '${role}'. Allowed: admin, branch, employee` }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
