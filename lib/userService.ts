@@ -124,16 +124,18 @@ export class UserService {
         if (attempt === maxRetries) {
           console.error('Failed to fetch user profile after all retries');
           // Return a minimal profile to prevent app crashes
-          const fallbackProfile = {
+          const fallbackProfile: UserProfile = {
             id: userId,
             name: 'Unknown User',
             email: '',
-            role: 'user' as UserRole,
-            branch_id: null,
+            role: 'employee' as UserRole,
+            branch_id: undefined,
             is_active: true,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            branch_name: null
+            branch_name: undefined,
+            permissions: UserService.getUserPermissions('employee'),
+            dashboard_route: DASHBOARD_ROUTES.employee
           };
           userProfileCache.set(userId, fallbackProfile);
           return fallbackProfile;
