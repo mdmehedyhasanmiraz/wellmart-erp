@@ -48,11 +48,11 @@ export class UserService {
               name: 'Unknown User',
               email: '',
               role: 'employee' as UserRole,
-              branch_id: null,
+              branch_id: undefined,
               is_active: true,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-              branch_name: null,
+              branch_name: undefined,
               permissions: UserService.getUserPermissions('employee'),
               dashboard_route: DASHBOARD_ROUTES.employee
             };
