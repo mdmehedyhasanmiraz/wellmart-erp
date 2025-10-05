@@ -143,7 +143,7 @@ export default function BranchDashboard() {
                   <p className="text-white/70 text-sm">{product.category?.name || 'No Category'}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-white font-medium">{ProductService.formatPrice(product.price_regular)}</p>
+                  <p className="text-white font-medium">{ProductService.formatPrice(product.tp)}</p>
                   <p className="text-white/70 text-sm">Stock: {product.stock}</p>
                 </div>
                 <div className="flex items-center space-x-2">

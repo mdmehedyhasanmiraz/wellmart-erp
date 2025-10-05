@@ -155,7 +155,7 @@ export default function NewSalesPage() {
                   {lines.map((l, idx) => (
                     <tr key={idx}>
                       <td className="px-3 py-2">
-                        <select value={l.product_id} onChange={(e) => setLine(idx, { product_id: e.target.value, unit_price: products.find(p => p.id === e.target.value)?.price_regular || 0 })}
+                        <select value={l.product_id} onChange={(e) => setLine(idx, { product_id: e.target.value, unit_price: products.find(p => p.id === e.target.value)?.tp || 0 })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                           <option value="">Select product</option>
                           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
