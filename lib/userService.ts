@@ -316,7 +316,7 @@ export class UserService {
         body: JSON.stringify(userData),
       });
       if (!res.ok) {
-        let msg: unknown = null;
+        let msg: { error?: string } | null = null;
         try {
           msg = await res.json();
         } catch {}
