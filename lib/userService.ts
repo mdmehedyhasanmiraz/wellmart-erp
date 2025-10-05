@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { User, UserRole, Branch, CreateUserData, UpdateUserData, DASHBOARD_ROUTES } from '@/types/user';
+import { User, UserRole, Branch, CreateUserData, UpdateUserData, DASHBOARD_ROUTES, UserProfile } from '@/types/user';
 import { userProfileCache } from './userProfileCache';
 
 export class UserService {
@@ -83,9 +83,11 @@ export class UserService {
               
               const { data: branchData } = await Promise.race([branchQueryPromise, branchTimeoutPromise]) as { data: { name: string } | null };
               
-              const profile = {
+              const profile: UserProfile = {
                 ...data,
-                branch_name: branchData?.name
+                branch_name: branchData?.name,
+                permissions: UserService.getUserPermissions(data.role),
+                dashboard_route: DASHBOARD_ROUTES[data.role]
               };
               
               // Cache the profile
@@ -93,9 +95,11 @@ export class UserService {
               return profile;
             } catch (branchError) {
               console.warn('Could not fetch branch name:', branchError);
-              const profile = {
+              const profile: UserProfile = {
                 ...data,
-                branch_name: null
+                branch_name: undefined,
+                permissions: UserService.getUserPermissions(data.role),
+                dashboard_route: DASHBOARD_ROUTES[data.role]
               };
               userProfileCache.set(userId, profile);
               return profile;
@@ -103,9 +107,11 @@ export class UserService {
           }
           
           // Cache the profile
-          const profile = {
+          const profile: UserProfile = {
             ...data,
-            branch_name: null
+            branch_name: undefined,
+            permissions: UserService.getUserPermissions(data.role),
+            dashboard_route: DASHBOARD_ROUTES[data.role]
           };
           userProfileCache.set(userId, profile);
           return profile;
