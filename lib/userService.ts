@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { User, UserRole, Branch, CreateUserData, UpdateUserData } from '@/types/user';
+import { User, UserRole, Branch, CreateUserData, UpdateUserData, DASHBOARD_ROUTES } from '@/types/user';
 import { userProfileCache } from './userProfileCache';
 
 export class UserService {
@@ -47,12 +47,14 @@ export class UserService {
               id: userId,
               name: 'Unknown User',
               email: '',
-              role: 'user' as UserRole,
+              role: 'employee' as UserRole,
               branch_id: null,
               is_active: true,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-              branch_name: null
+              branch_name: null,
+              permissions: UserService.getUserPermissions('employee'),
+              dashboard_route: DASHBOARD_ROUTES.employee
             };
             userProfileCache.set(userId, fallbackProfile);
             return fallbackProfile;
