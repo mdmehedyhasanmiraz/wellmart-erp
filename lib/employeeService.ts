@@ -7,6 +7,7 @@ export class EmployeeService {
     const optionalStringFields = [
       'designation_id',
       'branch_id',
+      'reports_to_employee_id',
       'phone',
       'email',
       'present_address',
@@ -36,7 +37,8 @@ export class EmployeeService {
       .from('employees')
       .select(`
         *,
-        designation:designation_id(id, name, code, level, department)
+        designation:designation_id(id, name, code, level, department),
+        manager:reports_to_employee_id(id, name, employee_code)
       `)
       .order('created_at', { ascending: false });
     if (error) {
@@ -51,7 +53,8 @@ export class EmployeeService {
       .from('employees')
       .select(`
         *,
-        designation:designation_id(id, name, code, level, department)
+        designation:designation_id(id, name, code, level, department),
+        manager:reports_to_employee_id(id, name, employee_code)
       `)
       .eq('id', id)
       .single();
@@ -60,6 +63,22 @@ export class EmployeeService {
       return null;
     }
     return data as Employee;
+  }
+
+  static async listReporters(managerId: string): Promise<Employee[]> {
+    const { data, error } = await supabase
+      .from('employees')
+      .select(`
+        *,
+        designation:designation_id(id, name, code, level, department)
+      `)
+      .eq('reports_to_employee_id', managerId)
+      .eq('is_active', true);
+    if (error) {
+      console.error('Error fetching reporters:', error);
+      return [];
+    }
+    return data as Employee[];
   }
 
   static async create(payload: CreateEmployeeData): Promise<Employee | null> {

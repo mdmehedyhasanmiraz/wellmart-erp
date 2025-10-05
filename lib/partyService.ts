@@ -29,6 +29,8 @@ export class PartyService {
         country: payload.country,
         latitude: payload.latitude,
         longitude: payload.longitude,
+        employee_id: (payload as any).employee_id ?? undefined,
+        branch_id: (payload as any).branch_id ?? undefined,
         is_active: payload.is_active ?? true,
       })
       .select()

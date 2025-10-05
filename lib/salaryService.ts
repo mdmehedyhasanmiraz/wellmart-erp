@@ -262,6 +262,19 @@ export class SalaryService {
     }
     return data as PayrollRunItem[]
   }
+
+  static async listRunItemsByEmployee(employeeId: string): Promise<PayrollRunItem[]> {
+    const { data, error } = await supabase
+      .from('payroll_run_items')
+      .select('*')
+      .eq('employee_id', employeeId)
+      .order('net_pay', { ascending: false })
+    if (error) {
+      console.error('listRunItemsByEmployee error', error)
+      return []
+    }
+    return data as PayrollRunItem[]
+  }
 }
 
 

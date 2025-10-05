@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { Branch } from '@/types/user';
+import { BranchService } from '@/lib/branchService';
 
 const branchMenuItems = [
   {
@@ -130,32 +132,63 @@ const branchMenuItems = [
 export default function BranchSidebar() {
   const pathname = usePathname();
   const { userProfile, signOut } = useAuth();
+  const [branch, setBranch] = useState<Branch | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadBranchDetails = async () => {
+      if (!userProfile?.branch_id) {
+        setLoading(false);
+        return;
+      }
+      
+      try {
+        const branchData = await BranchService.getById(userProfile.branch_id);
+        setBranch(branchData);
+      } catch (error) {
+        console.error('Error loading branch details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadBranchDetails();
+  }, [userProfile?.branch_id]);
+
+  // Filter menu items based on branch code
+  const filteredMenuItems = branchMenuItems.filter(item => {
+    // Show "Add Stock" only for MAIN branch users
+    if (item.name === 'Add Stock') {
+      return branch?.code === 'MAIN';
+    }
+    return true;
+  });
 
   // Group menu items by category
   const menuGroups = [
     {
       title: 'Overview',
-      items: branchMenuItems.slice(0, 1), // Dashboard
+      items: filteredMenuItems.slice(0, 1), // Dashboard
     },
     {
       title: 'Operations',
-      items: branchMenuItems.slice(1, 5), // Products, Inventory, Add Stock, Transfers
+      items: filteredMenuItems.slice(1, filteredMenuItems.findIndex(item => item.name === 'Transfers') + 1), // Products, Inventory, Add Stock (if MAIN), Transfers
     },
     {
       title: 'Management',
-      items: branchMenuItems.slice(5, 10), // Parties, Employees, Designations, Allowances, Users
+      items: filteredMenuItems.slice(filteredMenuItems.findIndex(item => item.name === 'Transfers') + 1, filteredMenuItems.findIndex(item => item.name === 'Branches')), // Parties, Employees, Designations, Allowances, Users
     },
     {
       title: 'Organization',
-      items: branchMenuItems.slice(10, 11), // Branches
+      items: filteredMenuItems.slice(filteredMenuItems.findIndex(item => item.name === 'Branches'), filteredMenuItems.findIndex(item => item.name === 'Reports')), // Branches
     },
     {
       title: 'Reports',
-      items: branchMenuItems.slice(11, 12), // Reports
+      items: filteredMenuItems.slice(filteredMenuItems.findIndex(item => item.name === 'Reports'), filteredMenuItems.findIndex(item => item.name === 'Settings')), // Reports
     },
     {
       title: 'System',
-      items: branchMenuItems.slice(12), // Settings
+      items: filteredMenuItems.slice(filteredMenuItems.findIndex(item => item.name === 'Settings')), // Settings
     },
   ];
 

@@ -6,6 +6,7 @@ export class BranchService {
     const { data, error } = await supabase
       .from('branches')
       .select('*')
+      .eq('is_active', true)
       .order('name', { ascending: true });
     if (error) {
       console.error('Error fetching branches:', error);

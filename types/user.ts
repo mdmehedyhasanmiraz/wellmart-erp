@@ -332,6 +332,7 @@ export interface Employee {
   designation?: Designation;
   employee_code: string;
   branch_id?: string;
+  reports_to_employee_id?: string;
   phone?: string;
   email?: string;
   present_address?: string;
@@ -351,6 +352,7 @@ export interface CreateEmployeeData {
   designation_id?: string;
   employee_code: string;
   branch_id?: string;
+  reports_to_employee_id?: string;
   phone?: string;
   email?: string;
   present_address?: string;
@@ -368,6 +370,7 @@ export interface UpdateEmployeeData {
   designation_id?: string;
   employee_code?: string;
   branch_id?: string;
+  reports_to_employee_id?: string;
   phone?: string;
   email?: string;
   present_address?: string;

@@ -6,6 +6,7 @@ import { EmployeeService } from '@/lib/employeeService';
 import { DesignationService } from '@/lib/designationService';
 import { BranchService } from '@/lib/branchService';
 import { CreateEmployeeData, Designation, Branch } from '@/types/user';
+import { supabase } from '@/lib/supabase';
 
 export default function AddEmployeePage() {
   const router = useRouter();
@@ -14,11 +15,13 @@ export default function AddEmployeePage() {
   const [loadingDesignations, setLoadingDesignations] = useState(true);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(true);
+  const [managers, setManagers] = useState<Array<{ id: string; name: string; employee_code: string }>>([]);
   const [form, setForm] = useState<CreateEmployeeData>({
     name: '',
     designation_id: '',
     employee_code: '',
     branch_id: '',
+    reports_to_employee_id: '',
     phone: '',
     email: '',
     present_address: '',
@@ -56,6 +59,30 @@ export default function AddEmployeePage() {
     loadDesignations();
     loadBranches();
   }, []);
+
+  useEffect(() => {
+    const loadManagers = async () => {
+      if (!form.designation_id) { setManagers([]); return; }
+      const d = await DesignationService.getById(form.designation_id!);
+      if (!d?.reporting_to_id) { setManagers([]); return; }
+      let query = supabase
+        .from('employees')
+        .select('id, name, employee_code')
+        .eq('designation_id', d.reporting_to_id)
+        .eq('is_active', true);
+      if (form.branch_id) {
+        query = query.eq('branch_id', form.branch_id);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.error('Error loading managers', error);
+        setManagers([]);
+      } else {
+        setManagers((data || []) as Array<{ id: string; name: string; employee_code: string }>);
+      }
+    };
+    loadManagers();
+  }, [form.designation_id, form.branch_id]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -132,6 +159,20 @@ export default function AddEmployeePage() {
               {loadingBranches && (
                 <p className="mt-1 text-sm text-gray-500">Loading branches...</p>
               )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Reports To</label>
+              <select
+                name="reports_to_employee_id"
+                value={form.reports_to_employee_id || ''}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">Select manager (optional)</option>
+                {managers.map(m => (
+                  <option key={m.id} value={m.id}>{m.name} ({m.employee_code})</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>

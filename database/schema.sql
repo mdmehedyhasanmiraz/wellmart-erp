@@ -99,6 +99,17 @@ CREATE POLICY "Branch managers can view their branch" ON public.branches
         )
     );
 
+-- Allow branch users to view all active branches for transfer purposes
+CREATE POLICY "Branch users can view all active branches" ON public.branches
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.users 
+            WHERE id = auth.uid() 
+            AND role = 'branch'
+        )
+        AND is_active = true
+    );
+
 -- Function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -207,6 +218,7 @@ CREATE TABLE public.employees (
     designation_id UUID REFERENCES public.designations(id) ON DELETE SET NULL,
     employee_code TEXT UNIQUE NOT NULL,
     branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+    reports_to_employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
     phone TEXT,
     email TEXT,
     present_address TEXT,
@@ -227,6 +239,7 @@ CREATE TABLE public.employees (
 CREATE INDEX idx_employees_branch_id ON public.employees(branch_id);
 CREATE INDEX idx_employees_designation_id ON public.employees(designation_id);
 CREATE INDEX idx_employees_employee_code ON public.employees(employee_code);
+CREATE INDEX idx_employees_reports_to ON public.employees(reports_to_employee_id);
 CREATE INDEX idx_employees_is_active ON public.employees(is_active);
 CREATE INDEX idx_employees_joined_date ON public.employees(joined_date);
 
@@ -998,6 +1011,9 @@ CREATE TABLE IF NOT EXISTS public.parties (
     country TEXT,
     latitude NUMERIC(10,6),
     longitude NUMERIC(10,6),
+    branch_id UUID REFERENCES public.branches(id) ON DELETE SET NULL,
+    created_by UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    employee_id UUID REFERENCES public.employees(id) ON DELETE SET NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now())
@@ -1005,6 +1021,9 @@ CREATE TABLE IF NOT EXISTS public.parties (
 
 CREATE INDEX IF NOT EXISTS idx_parties_name ON public.parties(name);
 CREATE INDEX IF NOT EXISTS idx_parties_is_active ON public.parties(is_active);
+CREATE INDEX IF NOT EXISTS idx_parties_branch_id ON public.parties(branch_id);
+CREATE INDEX IF NOT EXISTS idx_parties_created_by ON public.parties(created_by);
+CREATE INDEX IF NOT EXISTS idx_parties_employee_id ON public.parties(employee_id);
 
 ALTER TABLE public.parties ENABLE ROW LEVEL SECURITY;
 
@@ -1016,8 +1035,37 @@ CREATE POLICY IF NOT EXISTS "Branch view parties" ON public.parties
     EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role IN ('admin','branch'))
   );
 
+CREATE POLICY IF NOT EXISTS "Employees insert parties" ON public.parties
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'employee')
+  );
+
+CREATE POLICY IF NOT EXISTS "Employees view own parties" ON public.parties
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND role = 'employee' AND created_by = auth.uid())
+  );
+
 CREATE TRIGGER update_parties_updated_at BEFORE UPDATE ON public.parties
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+-- Auto-fill branch/created_by on party insert
+CREATE OR REPLACE FUNCTION public.before_insert_parties_defaults()
+RETURNS TRIGGER AS $$
+DECLARE v_branch UUID;
+BEGIN
+  IF NEW.created_by IS NULL THEN
+    NEW.created_by := auth.uid();
+  END IF;
+  IF NEW.branch_id IS NULL THEN
+    SELECT branch_id INTO v_branch FROM public.users WHERE id = NEW.created_by;
+    NEW.branch_id := v_branch;
+  END IF;
+  RETURN NEW;
+END;$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_parties_defaults ON public.parties;
+CREATE TRIGGER trg_parties_defaults BEFORE INSERT ON public.parties
+  FOR EACH ROW EXECUTE FUNCTION public.before_insert_parties_defaults();
 
 CREATE TABLE IF NOT EXISTS public.sales_orders (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,

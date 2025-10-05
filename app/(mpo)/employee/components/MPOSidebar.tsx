@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const mpoMenuItems = [
   {
     name: 'Dashboard',
-    href: '/mpo',
+    href: '/employee',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z" />
@@ -18,7 +18,7 @@ const mpoMenuItems = [
   },
   {
     name: 'Products',
-    href: '/mpo/products',
+    href: '/employee/products',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
@@ -27,7 +27,7 @@ const mpoMenuItems = [
   },
   {
     name: 'Customers',
-    href: '/mpo/customers',
+    href: '/employee/customers',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -36,7 +36,7 @@ const mpoMenuItems = [
   },
   {
     name: 'Sales Orders',
-    href: '/mpo/sales-orders',
+    href: '/employee/sales-orders',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -45,7 +45,7 @@ const mpoMenuItems = [
   },
   {
     name: 'My Sales',
-    href: '/mpo/sales',
+    href: '/employee/sales',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
@@ -54,10 +54,19 @@ const mpoMenuItems = [
   },
   {
     name: 'Reports',
-    href: '/mpo/reports',
+    href: '/employee/reports',
     icon: (
       <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
+    name: 'My Salary',
+    href: '/employee/salary',
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
       </svg>
     ),
   },
@@ -66,80 +75,81 @@ const mpoMenuItems = [
 export default function MPOSidebar() {
   const pathname = usePathname();
   const { userProfile, signOut } = useAuth();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  // Group and styling aligned with Admin/Branch sidebars
+  const menuGroups = [
+    { title: 'Overview', items: mpoMenuItems.slice(0, 1) },
+    { title: 'Operations', items: mpoMenuItems.slice(1, 5) },
+    { title: 'Insights', items: mpoMenuItems.slice(5) },
+  ];
 
   return (
-    <div className={`fixed left-0 top-0 h-full bg-white/10 backdrop-blur-xl border-r border-white/20 transition-all duration-300 z-50 ${isCollapsed ? 'w-16' : 'w-64'}`}>
+    <div className="fixed left-0 top-0 h-full w-72 bg-white border-r border-gray-200 shadow-lg z-50 flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-white/20">
-        <div className="flex items-center justify-between">
-          {!isCollapsed && (
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
-                <span className="text-white font-bold text-lg">M</span>
-              </div>
-              <div>
-                <h1 className="text-white font-bold text-xl">MPO Panel</h1>
-                <p className="text-white/70 text-sm">Wellmart ERP</p>
-              </div>
-            </div>
-          )}
-          <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center shadow-lg">
+            <span className="text-white font-bold text-xl">E</span>
+          </div>
+          <div>
+            <h1 className="text-white font-bold text-xl">Employee Panel</h1>
+            <p className="text-white/90 text-sm">Wellmart ERP</p>
+          </div>
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="p-4 space-y-2">
-        {mpoMenuItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.name}
-              href={item.href}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                isActive
-                  ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg'
-                  : 'text-white/80 hover:bg-white/10 hover:text-white'
-              }`}
-            >
-              <div className={`${isActive ? 'text-white' : 'text-white/70 group-hover:text-white'}`}>
-                {item.icon}
+      <div className="flex-1 overflow-y-auto bg-gray-50">
+        <nav className="p-4 space-y-6">
+          {menuGroups.map((group, groupIndex) => (
+            <div key={groupIndex}>
+              <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
+                {group.title}
+              </h3>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
+                        isActive
+                          ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md'
+                          : 'text-black hover:bg-white hover:text-indigo-600 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className={`${isActive ? 'text-white' : 'text-gray-500 group-hover:text-indigo-600'}`}>
+                        {item.icon}
+                      </div>
+                      <span className="font-medium text-sm">{item.name}</span>
+                    </Link>
+                  );
+                })}
               </div>
-              {!isCollapsed && (
-                <span className="font-medium">{item.name}</span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
+            </div>
+          ))}
+        </nav>
+      </div>
 
       {/* User Profile */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-white/20">
+      <div className="p-4 border-t border-gray-200 bg-white flex-shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
             <span className="text-white font-bold">
-              {userProfile?.name?.charAt(0) || 'M'}
+              {userProfile?.name?.charAt(0) || 'E'}
             </span>
           </div>
-          {!isCollapsed && (
-            <div className="flex-1">
-              <p className="text-white font-medium text-sm">{userProfile?.name || 'MPO'}</p>
-              <p className="text-white/70 text-xs">Medical Promotion Officer</p>
-            </div>
-          )}
+          <div className="flex-1">
+            <p className="text-black font-medium text-sm">{userProfile?.name || 'Employee'}</p>
+            <p className="text-gray-500 text-xs">Employee</p>
+          </div>
           <button
             onClick={() => signOut()}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+            className="p-2 rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors"
             title="Sign Out"
           >
-            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>

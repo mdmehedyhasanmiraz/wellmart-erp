@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { User } from '@/types/user';
+import { User, Employee } from '@/types/user';
 import { supabase } from '@/lib/supabase';
+import { EmployeeService } from '@/lib/employeeService';
 
 export default function UserDetailsPage() {
   const router = useRouter();
@@ -11,6 +12,8 @@ export default function UserDetailsPage() {
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [employee, setEmployee] = useState<Employee | null>(null);
+  const [subordinates, setSubordinates] = useState<Employee[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -20,7 +23,31 @@ export default function UserDetailsPage() {
         .select(`*, branches ( id, name, code )`)
         .eq('id', id)
         .single();
-      if (data) setUser({ ...data, branch_name: data.branches?.name });
+      if (data) {
+        const u = { ...data, branch_name: data.branches?.name } as User;
+        setUser(u);
+
+        // If this is an employee user, try to load their employee record by email
+        if (u.role === 'employee' && u.email) {
+          const { data: emp } = await supabase
+            .from('employees')
+            .select(`
+              *,
+              designation:designation_id(id, name, code, level, department),
+              manager:reports_to_employee_id(id, name, employee_code,
+                designation:designation_id(id, name))
+            `)
+            .eq('email', u.email)
+            .eq('is_active', true)
+            .limit(1)
+            .maybeSingle();
+          if (emp) {
+            setEmployee(emp as unknown as Employee);
+            const reporters = await EmployeeService.listReporters(emp.id);
+            setSubordinates(reporters);
+          }
+        }
+      }
       setLoading(false);
     })();
   }, [id]);
@@ -77,6 +104,56 @@ export default function UserDetailsPage() {
           </div>
         </div>
       </div>
+
+      {user.role === 'employee' && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">HR Panel</h2>
+          {employee ? (
+            <div className="space-y-6">
+              <div>
+                <div className="text-sm text-gray-500 mb-1">Designation</div>
+                <div className="text-gray-900">{(employee as any).designation?.name || '—'}</div>
+              </div>
+
+              <div>
+                <div className="text-sm text-gray-500 mb-2">Reports To</div>
+                {(employee as any).manager ? (
+                  <div className="flex items-center justify-between rounded border p-3">
+                    <div>
+                      <div className="text-gray-900">{(employee as any).manager.name}</div>
+                      <div className="text-sm text-gray-600">{(employee as any).manager.designation?.name || '—'}</div>
+                    </div>
+                    <div className="text-xs text-gray-500">Code: {(employee as any).manager.employee_code}</div>
+                  </div>
+                ) : (
+                  <div className="text-gray-600">No manager assigned</div>
+                )}
+              </div>
+
+              <div>
+                <div className="text-sm text-gray-500 mb-2">Direct Reports</div>
+                {subordinates.length > 0 ? (
+                  <ul className="divide-y divide-gray-100 rounded border">
+                    {subordinates.map((s) => (
+                      <li key={s.id} className="flex items-center justify-between p-3">
+                        <div>
+                          <div className="text-gray-900">{s.name}</div>
+                          <div className="text-sm text-gray-600">{(s as any).designation?.name || '—'}</div>
+                        </div>
+                        <div className="text-xs text-gray-500">Code: {s.employee_code}</div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-gray-600">No direct reports</div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="text-gray-600">No employee record found for this user.</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

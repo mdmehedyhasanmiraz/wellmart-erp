@@ -13,6 +13,7 @@ export default function EditUserPage() {
   const [saving, setSaving] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [form, setForm] = useState<UpdateUserData>({});
+  const [email, setEmail] = useState<string>('');
 
   useEffect(() => {
     (async () => {
@@ -24,6 +25,7 @@ export default function EditUserPage() {
         .eq('id', id)
         .single();
       if (data) {
+        setEmail(data.email || '');
         setForm({
           name: data.name,
           phone: data.phone,
@@ -38,7 +40,16 @@ export default function EditUserPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: name === 'is_active' ? (e.target as HTMLInputElement).checked : value }));
+    if (name === 'is_active') {
+      setForm(prev => ({ ...prev, is_active: (e.target as HTMLInputElement).checked }));
+      return;
+    }
+    if (name === 'role') {
+      const nextRole = value as UpdateUserData['role'];
+      setForm(prev => ({ ...prev, role: nextRole, branch_id: nextRole === 'branch' ? prev.branch_id : undefined }));
+      return;
+    }
+    setForm(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -72,6 +83,10 @@ export default function EditUserPage() {
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input value={email} disabled className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600" />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Name *</label>
               <input name="name" value={form.name || ''} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
@@ -82,15 +97,15 @@ export default function EditUserPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-              <select name="role" value={form.role || 'mpo'} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+              <select name="role" value={form.role || 'employee'} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                 <option value="admin">Admin</option>
                 <option value="branch">Branch</option>
-                <option value="mpo">MPO</option>
+                <option value="employee">Employee</option>
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-              <select name="branch_id" value={form.branch_id || ''} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+              <select name="branch_id" value={form.branch_id || ''} onChange={handleChange} disabled={form.role !== 'branch'} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed">
                 <option value="">None</option>
                 {branches.map(b => (
                   <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
