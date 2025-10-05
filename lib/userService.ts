@@ -4,7 +4,7 @@ import { userProfileCache } from './userProfileCache';
 
 export class UserService {
   // Get user profile with role information
-  static async getUserProfile(userId: string): Promise<User | null> {
+  static async getUserProfile(userId: string): Promise<UserProfile | null> {
     // Check cache first
     const cachedProfile = userProfileCache.get(userId);
     if (cachedProfile) {
