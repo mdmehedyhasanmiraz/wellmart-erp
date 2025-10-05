@@ -4,7 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    let { name, email, role, branch_id, is_active = true, password } = body || {} as {
+    let { name, email, role, branch_id } = body || {} as {
+      name?: string; email?: string; role?: string; branch_id?: string | null; is_active?: boolean; password?: string
+    };
+    const { is_active = true, password } = body || {} as {
       name?: string; email?: string; role?: string; branch_id?: string | null; is_active?: boolean; password?: string
     };
 

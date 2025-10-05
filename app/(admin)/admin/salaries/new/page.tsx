@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SalaryService } from '@/lib/salaryService'
 import { EmployeeService } from '@/lib/employeeService'
+import { Employee } from '@/types/user'
 
 type EmployeeLite = { id: string; name: string; employee_code: string }
 type NewSalaryForm = {
@@ -41,7 +42,7 @@ export default function NewSalaryProfilePage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    EmployeeService.getAll().then((list) => setEmployees(list.map((e: any) => ({ id: e.id, name: e.name, employee_code: e.employee_code }))))
+    EmployeeService.getAll().then((list) => setEmployees(list.map((e: Employee) => ({ id: e.id, name: e.name, employee_code: e.employee_code }))))
   }, [])
 
   async function onSubmit(e: React.FormEvent) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ProductService } from '@/lib/productService';
 import { InventoryService } from '@/lib/inventoryService';
@@ -25,13 +25,7 @@ export default function ProductDetailsPage() {
   const [batches, setBatches] = useState<BatchRow[]>([]);
   const [totalStock, setTotalStock] = useState<number>(0);
 
-  useEffect(() => {
-    if (productId) {
-      fetchProduct();
-    }
-  }, [productId]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       const data = await ProductService.getProductById(productId);
       setProduct(data);
@@ -39,7 +33,15 @@ export default function ProductDetailsPage() {
         InventoryService.getBatchesByProduct(productId),
         InventoryService.getTotalStockForProduct(productId),
       ]);
-      setBatches((batchRows || []).map((b: any) => ({
+      setBatches((batchRows || []).map((b: {
+        id?: string;
+        batch_number: string;
+        quantity_received: number;
+        quantity_remaining?: number;
+        manufacturing_date?: string | null;
+        expiry_date?: string | null;
+        status?: 'active' | 'expired' | 'recalled' | 'consumed';
+      }) => ({
         id: b.id,
         batch_number: b.batch_number,
         quantity_received: b.quantity_received,
@@ -56,7 +58,13 @@ export default function ProductDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId, router]);
+
+  useEffect(() => {
+    if (productId) {
+      fetchProduct();
+    }
+  }, [productId, fetchProduct]);
 
   const handleDelete = async () => {
     if (confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
@@ -305,26 +313,6 @@ export default function ProductDetailsPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Product Image */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Product Image</h2>
-            {product.image_urls && product.image_urls.length > 0 ? (
-              <div className="space-y-4">
-                {product.image_urls.map((url, index) => (
-                  <img
-                    key={index}
-                    src={url}
-                    alt={`${product.name} - Image ${index + 1}`}
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="w-full h-48 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-4xl">📦</span>
-              </div>
-            )}
-          </div>
 
           {/* Product Status */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

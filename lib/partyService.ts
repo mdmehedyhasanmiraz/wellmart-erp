@@ -1,6 +1,13 @@
 import { supabase } from './supabase';
 import { Party } from '@/types/user';
 
+// Extended interface for party creation that includes tracking fields
+interface CreatePartyData extends Partial<Party> {
+  employee_id?: string;
+  branch_id?: string;
+  created_by?: string;
+}
+
 export class PartyService {
   static async list(): Promise<Party[]> {
     const { data, error } = await supabase.from('parties').select('*').eq('is_active', true).order('name', { ascending: true });
@@ -11,7 +18,7 @@ export class PartyService {
     return data as Party[];
   }
 
-  static async create(payload: Partial<Party>): Promise<Party | null> {
+  static async create(payload: CreatePartyData): Promise<Party | null> {
     const { data, error } = await supabase
       .from('parties')
       .insert({
@@ -29,8 +36,9 @@ export class PartyService {
         country: payload.country,
         latitude: payload.latitude,
         longitude: payload.longitude,
-        employee_id: (payload as any).employee_id ?? undefined,
-        branch_id: (payload as any).branch_id ?? undefined,
+        employee_id: payload.employee_id ?? undefined,
+        branch_id: payload.branch_id ?? undefined,
+        created_by: payload.created_by ?? undefined,
         is_active: payload.is_active ?? true,
       })
       .select()

@@ -23,9 +23,8 @@ export default function NewCustomerPage() {
     setSaving(true)
     await PartyService.create({
       ...form,
-      employee_id: userProfile.id,
-      branch_id: userProfile.branch_id,
-    } as any)
+      is_active: true,
+    })
     setSaving(false)
     setForm({ name: '', contact_person: '', phone: '', email: '', address_line1: '', city: '', country: '' })
   }

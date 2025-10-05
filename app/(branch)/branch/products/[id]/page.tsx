@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductService } from '@/lib/productService';
@@ -31,13 +31,7 @@ export default function BranchProductDetailsPage() {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [isMainBranch, setIsMainBranch] = useState(false);
 
-  useEffect(() => {
-    if (productId && userProfile?.branch_id) {
-      fetchProduct();
-    }
-  }, [productId, userProfile?.branch_id]);
-
-  const fetchProduct = async () => {
+  const fetchProduct = useCallback(async () => {
     try {
       const [productData, branchData] = await Promise.all([
         ProductService.getProductById(productId),
@@ -53,7 +47,15 @@ export default function BranchProductDetailsPage() {
         InventoryService.getTotalStockForProduct(productId),
       ]);
       
-      setBatches((batchRows || []).map((b: any) => ({
+      setBatches((batchRows || []).map((b: {
+        id?: string;
+        batch_number: string;
+        quantity_received: number;
+        quantity_remaining?: number;
+        manufacturing_date?: string | null;
+        expiry_date?: string | null;
+        status?: 'active' | 'expired' | 'recalled' | 'consumed';
+      }) => ({
         id: b.id,
         batch_number: b.batch_number,
         quantity_received: b.quantity_received,
@@ -70,7 +72,13 @@ export default function BranchProductDetailsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId, userProfile?.branch_id, router]);
+
+  useEffect(() => {
+    if (productId && userProfile?.branch_id) {
+      fetchProduct();
+    }
+  }, [productId, userProfile?.branch_id, fetchProduct]);
 
   const handleDelete = async () => {
     if (!isMainBranch) {
@@ -351,26 +359,6 @@ export default function BranchProductDetailsPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {/* Product Image */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Product Image</h2>
-            {product.image_urls && product.image_urls.length > 0 ? (
-              <div className="space-y-4">
-                {product.image_urls.map((url, index) => (
-                  <img
-                    key={index}
-                    src={url}
-                    alt={`${product.name} - Image ${index + 1}`}
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="w-full h-48 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-4xl">📦</span>
-              </div>
-            )}
-          </div>
 
           {/* Product Status */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

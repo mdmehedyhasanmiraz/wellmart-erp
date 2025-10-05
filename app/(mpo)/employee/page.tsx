@@ -1,10 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProductWithDetails, Employee } from '@/types/user';
+import { ProductWithDetails, Employee, Designation } from '@/types/user';
 import { ProductService } from '@/lib/productService';
 import { EmployeeService } from '@/lib/employeeService';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Extended Employee interface that includes manager and designation details
+interface EmployeeWithDetails extends Employee {
+  designation?: Designation;
+  manager?: {
+    id: string;
+    name: string;
+    employee_code: string;
+    designation?: Designation;
+  };
+}
 
 export default function MPODashboard() {
   const [stats, setStats] = useState({
@@ -15,9 +26,9 @@ export default function MPODashboard() {
   });
   const [recentProducts, setRecentProducts] = useState<ProductWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [manager, setManager] = useState<any | null>(null);
-  const [reporters, setReporters] = useState<Employee[]>([]);
+  const [employee, setEmployee] = useState<EmployeeWithDetails | null>(null);
+  const [manager, setManager] = useState<EmployeeWithDetails['manager'] | null>(null);
+  const [reporters, setReporters] = useState<EmployeeWithDetails[]>([]);
 
   const { userProfile } = useAuth();
 
@@ -42,7 +53,7 @@ export default function MPODashboard() {
         .eq('is_active', true)
         .limit(1)
         .maybeSingle();
-      let empData = byEmail.data as any | null;
+      let empData = byEmail.data as EmployeeWithDetails | null;
 
       // 2) Fallback by name + branch if not found by email
       if (!empData) {
@@ -62,17 +73,17 @@ export default function MPODashboard() {
           query = query.eq('branch_id', userProfile.branch_id);
         }
         const byName = await query.maybeSingle();
-        empData = byName.data as any | null;
+        empData = byName.data as EmployeeWithDetails | null;
       }
 
       if (empData) {
-        setEmployee(empData as unknown as Employee);
+        setEmployee(empData);
         setManager(empData.manager || null);
         const subs = await EmployeeService.listReporters(empData.id as string);
         setReporters(subs);
       }
     })();
-  }, [userProfile?.email]);
+  }, [userProfile?.email, userProfile?.branch_id, userProfile?.name]);
 
   const fetchDashboardData = async () => {
     try {
@@ -226,7 +237,7 @@ export default function MPODashboard() {
             <div className="space-y-3">
               <div>
                 <div className="text-sm text-gray-500">My Designation</div>
-                <div className="text-gray-900">{(employee as any)?.designation?.name || '—'}</div>
+                <div className="text-gray-900">{employee?.designation?.name || '—'}</div>
               </div>
               <div>
                 <div className="text-sm text-gray-500 mb-1">Reports To</div>
@@ -251,7 +262,7 @@ export default function MPODashboard() {
                     <li key={r.id} className="flex items-center justify-between p-3">
                       <div>
                         <div className="text-gray-900">{r.name}</div>
-                        <div className="text-sm text-gray-600">{(r as any).designation?.name || '—'}</div>
+                        <div className="text-sm text-gray-600">{r.designation?.name || '—'}</div>
                       </div>
                       <div className="text-xs text-gray-500">Code: {r.employee_code}</div>
                     </li>

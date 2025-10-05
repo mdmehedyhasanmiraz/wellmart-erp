@@ -156,7 +156,7 @@ export default function BranchAddStockPage() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
-          <p className="text-gray-600">You don't have permission to access this page.</p>
+          <p className="text-gray-600">You don&apos;t have permission to access this page.</p>
         </div>
 
         <div className="bg-red-50 border border-red-200 rounded-xl p-6">
@@ -167,7 +167,7 @@ export default function BranchAddStockPage() {
             <div>
               <h3 className="text-lg font-semibold text-red-800">Restricted Access</h3>
               <p className="text-red-700 mt-1">
-                The "Add Stock" feature is only available to users from the Main Branch.
+                The &quot;Add Stock&quot; feature is only available to users from the Main Branch.
                 Your current branch: <span className="font-medium">{branch?.name || 'Unknown'}</span>
               </p>
               <p className="text-red-600 text-sm mt-2">

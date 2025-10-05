@@ -2,9 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { User, Employee } from '@/types/user';
+import { User, Employee, Designation } from '@/types/user';
 import { supabase } from '@/lib/supabase';
 import { EmployeeService } from '@/lib/employeeService';
+
+// Extended Employee interface that includes manager and designation details
+interface EmployeeWithDetails extends Employee {
+  manager?: {
+    id: string;
+    name: string;
+    employee_code: string;
+    designation?: Designation;
+  };
+}
 
 export default function UserDetailsPage() {
   const router = useRouter();
@@ -12,8 +22,8 @@ export default function UserDetailsPage() {
   const id = params.id as string;
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [subordinates, setSubordinates] = useState<Employee[]>([]);
+  const [employee, setEmployee] = useState<EmployeeWithDetails | null>(null);
+  const [subordinates, setSubordinates] = useState<EmployeeWithDetails[]>([]);
 
   useEffect(() => {
     if (!id) return;
@@ -112,18 +122,18 @@ export default function UserDetailsPage() {
             <div className="space-y-6">
               <div>
                 <div className="text-sm text-gray-500 mb-1">Designation</div>
-                <div className="text-gray-900">{(employee as any).designation?.name || '—'}</div>
+                <div className="text-gray-900">{employee.designation?.name || '—'}</div>
               </div>
 
               <div>
                 <div className="text-sm text-gray-500 mb-2">Reports To</div>
-                {(employee as any).manager ? (
+                {employee.manager ? (
                   <div className="flex items-center justify-between rounded border p-3">
                     <div>
-                      <div className="text-gray-900">{(employee as any).manager.name}</div>
-                      <div className="text-sm text-gray-600">{(employee as any).manager.designation?.name || '—'}</div>
+                      <div className="text-gray-900">{employee.manager.name}</div>
+                      <div className="text-sm text-gray-600">{employee.manager.designation?.name || '—'}</div>
                     </div>
-                    <div className="text-xs text-gray-500">Code: {(employee as any).manager.employee_code}</div>
+                    <div className="text-xs text-gray-500">Code: {employee.manager.employee_code}</div>
                   </div>
                 ) : (
                   <div className="text-gray-600">No manager assigned</div>
@@ -138,7 +148,7 @@ export default function UserDetailsPage() {
                       <li key={s.id} className="flex items-center justify-between p-3">
                         <div>
                           <div className="text-gray-900">{s.name}</div>
-                          <div className="text-sm text-gray-600">{(s as any).designation?.name || '—'}</div>
+                          <div className="text-sm text-gray-600">{s.designation?.name || '—'}</div>
                         </div>
                         <div className="text-xs text-gray-500">Code: {s.employee_code}</div>
                       </li>
