@@ -66,8 +66,9 @@ export default function SalesViewPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (TP)</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Discounts</th>
                       <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                     </tr>
@@ -76,6 +77,7 @@ export default function SalesViewPage() {
                     {items.map((it) => (
                       <tr key={it.id}>
                         <td className="px-3 py-2 text-sm">{it.product_id.slice(0,8)}</td>
+                        <td className="px-3 py-2 text-sm">{it.batch_number || '-'}</td>
                         <td className="px-3 py-2 text-sm">{it.quantity}</td>
                         <td className="px-3 py-2 text-sm">৳{it.unit_price.toFixed(2)}</td>
                         <td className="px-3 py-2 text-sm">৳{it.discount_amount.toFixed(2)} / {it.discount_percent}%</td>

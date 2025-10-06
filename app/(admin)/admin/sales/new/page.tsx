@@ -6,8 +6,9 @@ import { Branch, Product, SalesOrder, SalesOrderItem } from '@/types/user';
 import { BranchService } from '@/lib/branchService';
 import { ProductService } from '@/lib/productService';
 import { SalesService } from '@/lib/salesService';
+import { InventoryService } from '@/lib/inventoryService';
 import { useRouter } from 'next/navigation';
-import { Party } from '@/types/user';
+import { Party, ProductBranchBatchStock } from '@/types/user';
 import { PartyService } from '@/lib/partyService';
 
 type Line = {
@@ -16,6 +17,7 @@ type Line = {
   unit_price: number;
   discount_amount: number;
   discount_percent: number;
+  batch_number?: string;
 };
 
 export default function NewSalesPage() {
@@ -31,8 +33,9 @@ export default function NewSalesPage() {
   const [taxTotal, setTaxTotal] = useState<number>(0);
   const [shippingTotal, setShippingTotal] = useState<number>(0);
   const [note, setNote] = useState<string>('');
-  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0 }]);
+  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
 
   useEffect(() => {
     const load = async () => {
@@ -60,8 +63,28 @@ export default function NewSalesPage() {
   const setLine = (idx: number, update: Partial<Line>) => {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...update } : l)));
   };
-  const addLine = () => setLines((prev) => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0 }]);
+  const addLine = () => setLines((prev) => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
   const removeLine = (idx: number) => setLines((prev) => prev.filter((_, i) => i !== idx));
+
+  const loadBatchStocks = async (productId: string) => {
+    if (!productId || !branchId) return;
+    try {
+      const stocks = await InventoryService.getBatchStocksByBranch(productId, branchId);
+      setBatchStocks(prev => ({ ...prev, [productId]: stocks }));
+    } catch (error) {
+      console.error('Error loading batch stocks:', error);
+    }
+  };
+
+  const handleProductChange = async (idx: number, productId: string) => {
+    const product = products.find(p => p.id === productId);
+    setLine(idx, { 
+      product_id: productId, 
+      unit_price: product?.tp || 0,
+      batch_number: ''
+    });
+    await loadBatchStocks(productId);
+  };
 
   const canSubmit = useMemo(() => {
     if (!branchId) return false;
@@ -144,8 +167,9 @@ export default function NewSalesPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (TP)</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc Amt</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc %</th>
                     <th className="px-3 py-2"></th>
@@ -155,10 +179,22 @@ export default function NewSalesPage() {
                   {lines.map((l, idx) => (
                     <tr key={idx}>
                       <td className="px-3 py-2">
-                        <select value={l.product_id} onChange={(e) => setLine(idx, { product_id: e.target.value, unit_price: products.find(p => p.id === e.target.value)?.tp || 0 })}
+                        <select value={l.product_id} onChange={(e) => handleProductChange(idx, e.target.value)}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                           <option value="">Select product</option>
                           {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-3 py-2">
+                        <select value={l.batch_number || ''} onChange={(e) => setLine(idx, { batch_number: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          disabled={!l.product_id}>
+                          <option value="">Select batch</option>
+                          {batchStocks[l.product_id]?.map((stock) => (
+                            <option key={stock.batch_id} value={stock.product_batches?.batch_number || ''}>
+                              {stock.product_batches?.batch_number} ({stock.quantity} units)
+                            </option>
+                          ))}
                         </select>
                       </td>
                       <td className="px-3 py-2">
@@ -166,8 +202,8 @@ export default function NewSalesPage() {
                           className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                       </td>
                       <td className="px-3 py-2">
-                        <input type="number" min={0} value={l.unit_price} onChange={(e) => setLine(idx, { unit_price: Number(e.target.value) })}
-                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                        <input type="number" min={0} value={l.unit_price} readOnly
+                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700" />
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" min={0} value={l.discount_amount} onChange={(e) => setLine(idx, { discount_amount: Number(e.target.value) })}
