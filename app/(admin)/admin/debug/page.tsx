@@ -131,6 +131,8 @@ export default function DebugPage() {
           branch_id: userProfile.branch_id,
           branch_name: userProfile.branch_name,
           is_active: userProfile.is_active,
+          created_at: userProfile.created_at,
+          updated_at: userProfile.updated_at,
           dashboard_route: userProfile.dashboard_route,
           permissions: userProfile.permissions
         } : null,
