@@ -4,22 +4,29 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import AdminSidebar from '../components/AdminSidebar';
+import { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { UserProfile } from '@/types/user';
 
 interface DebugInfo {
   timestamp: string;
-  user: any;
-  userProfile: any;
-  session: any;
+  user: SupabaseUser | null;
+  userProfile: UserProfile | null;
+  session: Session | null;
   loading: boolean;
   profileLoading: boolean;
   databaseConnection: boolean;
   databaseLatency: number;
-  cacheStatus: any;
+  cacheStatus: {
+    hasUser: boolean;
+    hasProfile: boolean;
+    profileRole?: string;
+    profileIsActive?: boolean;
+  };
   errors: string[];
 }
 
 export default function DebugPage() {
-  const { user, userProfile, session, loading, profileLoading } = useAuth();
+  const { user, userProfile, session, loading, profileLoading, refreshUserProfile } = useAuth();
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
@@ -32,7 +39,7 @@ export default function DebugPage() {
   const testDatabaseConnection = async () => {
     const startTime = Date.now();
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('users')
         .select('count')
         .limit(1);
@@ -57,48 +64,48 @@ export default function DebugPage() {
       const dbTest = await testDatabaseConnection();
       addLog(`Database connection: ${dbTest.success ? 'SUCCESS' : 'FAILED'} (${dbTest.latency}ms)`);
       
-      // Test user profile fetch
-      if (user) {
-        addLog('Testing user profile fetch...');
-        const profileStartTime = Date.now();
-        try {
-          const { data, error } = await supabase
-            .from('users')
-            .select('id, name, email, role, branch_id, is_active, created_at, updated_at')
-            .eq('id', user.id)
-            .eq('is_active', true)
-            .single();
-          
-          const profileLatency = Date.now() - profileStartTime;
-          addLog(`User profile fetch: ${error ? 'FAILED' : 'SUCCESS'} (${profileLatency}ms)`);
-          if (error) {
-            addLog(`Profile fetch error: ${error.message}`);
+        // Test user profile fetch
+        if (user) {
+          addLog('Testing user profile fetch...');
+          const profileStartTime = Date.now();
+          try {
+            const { error } = await supabase
+              .from('users')
+              .select('id, name, email, role, branch_id, is_active, created_at, updated_at')
+              .eq('id', user.id)
+              .eq('is_active', true)
+              .single();
+            
+            const profileLatency = Date.now() - profileStartTime;
+            addLog(`User profile fetch: ${error ? 'FAILED' : 'SUCCESS'} (${profileLatency}ms)`);
+            if (error) {
+              addLog(`Profile fetch error: ${error.message}`);
+            }
+          } catch (error) {
+            addLog(`Profile fetch exception: ${error}`);
           }
-        } catch (error) {
-          addLog(`Profile fetch exception: ${error}`);
         }
-      }
       
-      // Test branch fetch if user has branch_id
-      if (userProfile?.branch_id) {
-        addLog('Testing branch fetch...');
-        const branchStartTime = Date.now();
-        try {
-          const { data, error } = await supabase
-            .from('branches')
-            .select('name')
-            .eq('id', userProfile.branch_id)
-            .single();
-          
-          const branchLatency = Date.now() - branchStartTime;
-          addLog(`Branch fetch: ${error ? 'FAILED' : 'SUCCESS'} (${branchLatency}ms)`);
-          if (error) {
-            addLog(`Branch fetch error: ${error.message}`);
+        // Test branch fetch if user has branch_id
+        if (userProfile?.branch_id) {
+          addLog('Testing branch fetch...');
+          const branchStartTime = Date.now();
+          try {
+            const { error } = await supabase
+              .from('branches')
+              .select('name')
+              .eq('id', userProfile.branch_id)
+              .single();
+            
+            const branchLatency = Date.now() - branchStartTime;
+            addLog(`Branch fetch: ${error ? 'FAILED' : 'SUCCESS'} (${branchLatency}ms)`);
+            if (error) {
+              addLog(`Branch fetch error: ${error.message}`);
+            }
+          } catch (error) {
+            addLog(`Branch fetch exception: ${error}`);
           }
-        } catch (error) {
-          addLog(`Branch fetch exception: ${error}`);
         }
-      }
       
       // Collect debug info
       const info: DebugInfo = {
@@ -155,7 +162,6 @@ export default function DebugPage() {
     try {
       if (user) {
         // Clear cache by refreshing profile
-        const { refreshUserProfile } = useAuth();
         await refreshUserProfile();
         addLog('Cache cleared and profile refreshed');
       }
@@ -273,7 +279,7 @@ export default function DebugPage() {
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Diagnostic Logs</h2>
             <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm max-h-96 overflow-y-auto">
               {logs.length === 0 ? (
-                <div className="text-gray-500">No logs yet. Click "Run Diagnostics" to start.</div>
+                <div className="text-gray-500">No logs yet. Click &quot;Run Diagnostics&quot; to start.</div>
               ) : (
                 logs.map((log, index) => (
                   <div key={index} className="mb-1">{log}</div>
@@ -325,7 +331,6 @@ export default function DebugPage() {
                   onClick={async () => {
                     addLog('Refreshing user profile...');
                     try {
-                      const { refreshUserProfile } = useAuth();
                       await refreshUserProfile();
                       addLog('Profile refresh completed');
                     } catch (error) {
