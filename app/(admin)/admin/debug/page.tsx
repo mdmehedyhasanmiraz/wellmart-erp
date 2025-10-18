@@ -9,7 +9,13 @@ import { UserProfile } from '@/types/user';
 
 interface DebugInfo {
   timestamp: string;
-  user: SupabaseUser | null;
+  user: {
+    id: string;
+    email: string | undefined;
+    role: any;
+    branch_id: any;
+    created_at: string;
+  } | null;
   userProfile: UserProfile | null;
   session: Session | null;
   loading: boolean;
