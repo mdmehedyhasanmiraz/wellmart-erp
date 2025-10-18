@@ -60,6 +60,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('User profile fetched successfully');
           setProfileLoading(false);
           return; // Success, exit retry loop
+        } else {
+          console.error('getUserProfile returned null - database may be unavailable');
+          // Don't create fallback profile, just set loading to false
+          // This will prevent redirects and allow the user to stay on current page
+          setProfileLoading(false);
+          return;
         }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -75,27 +81,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (attempt === retries) {
           console.error('Failed to fetch user profile after all retries');
           
-          // Create a fallback user profile with basic info from auth
-          if (user) {
-            console.log('Creating fallback user profile from auth data');
-            const userRole = (user.user_metadata?.role as UserRole) || 'employee';
-            const fallbackProfile: UserProfile = {
-              id: user.id,
-              email: user.email || '',
-              name: user.user_metadata?.name || '',
-              role: userRole,
-              branch_id: user.user_metadata?.branch_id || undefined,
-              branch_name: undefined,
-              is_active: true,
-              created_at: user.created_at,
-              updated_at: user.updated_at || user.created_at,
-              permissions: UserService.getUserPermissions(userRole),
-              dashboard_route: DASHBOARD_ROUTES[userRole]
-            };
-            
-            setUserProfile(fallbackProfile);
-            console.log('Fallback user profile set');
-          }
+          // DON'T create fallback user profile - this causes wrong role assignment
+          // Instead, just set loading to false and let the user stay on current page
+          console.log('Database unavailable - keeping user on current page without profile');
           setProfileLoading(false);
           return; // Exit the retry loop
         } else {

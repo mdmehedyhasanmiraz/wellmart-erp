@@ -27,6 +27,8 @@ export default function RoleProtectedRoute({
         return;
       }
 
+      // Only redirect if we have a userProfile AND it doesn't match allowed roles
+      // If userProfile is null (database unavailable), don't redirect
       if (userProfile && !allowedRoles.includes(userProfile.role)) {
         // Redirect to appropriate dashboard based on user role
         const dashboardRoute = userProfile.dashboard_route;
@@ -52,22 +54,38 @@ export default function RoleProtectedRoute({
     return null;
   }
 
-  // If profile is still loading, show children but with a warning
-  if (profileLoading) {
+  // If profile is still loading or null (database unavailable), show children but with a warning
+  if (profileLoading || !userProfile) {
     return (
       <>
-        <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-600 border-t-transparent"></div>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-yellow-700">
-                Loading user permissions...
-              </p>
+        {profileLoading && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-yellow-600 border-t-transparent"></div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-yellow-700">
+                  Loading user permissions...
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+        {!userProfile && !profileLoading && (
+          <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <div className="h-4 w-4 text-red-600">⚠️</div>
+              </div>
+              <div className="ml-3">
+                <p className="text-sm text-red-700">
+                  Database temporarily unavailable. Access control may be limited.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {children}
       </>
     );

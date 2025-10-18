@@ -126,6 +126,11 @@ const adminMenuItems = [
     href: '/admin/settings',
     icon: <SettingsIcon className="w-5 h-5" />,
   },
+  {
+    name: 'Debug',
+    href: '/admin/debug',
+    icon: <SettingsIcon className="w-5 h-5" />,
+  },
 ];
 
 export default function AdminSidebar() {

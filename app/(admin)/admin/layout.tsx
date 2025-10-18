@@ -24,6 +24,8 @@ export default function AdminLayout({
         setIsRedirecting(true);
         router.push(userProfile.dashboard_route);
       }
+      // If userProfile is null (database unavailable), don't redirect
+      // Let the user stay on the admin page
     }
   }, [user, userProfile, loading, profileLoading, router]);
 
@@ -39,10 +41,13 @@ export default function AdminLayout({
     );
   }
 
-  // Allow rendering even if profile is still loading (show basic UI)
+  // Allow rendering even if profile is still loading or null (database unavailable)
   if (!user) {
     return null;
   }
+
+  // Show database unavailable warning if user exists but no profile
+  const showDatabaseWarning = user && !profileLoading && !userProfile;
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900">
@@ -57,6 +62,22 @@ export default function AdminLayout({
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mr-2"></div>
                   <span className="text-blue-700 text-sm">Loading user profile...</span>
+                </div>
+              </div>
+            )}
+            {/* Show database unavailable warning */}
+            {showDatabaseWarning && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="h-4 w-4 text-red-600">⚠️</div>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">
+                      Database temporarily unavailable. Some features may be limited. 
+                      <a href="/admin/debug" className="underline font-medium">Debug</a>
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

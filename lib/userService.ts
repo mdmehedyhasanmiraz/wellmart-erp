@@ -12,16 +12,16 @@ export class UserService {
       return cachedProfile;
     }
 
-    const maxRetries = 2; // Reduced retries
-    const retryDelay = 500; // Reduced delay
+    const maxRetries = 3; // Increased retries
+    const retryDelay = 1000; // Increased delay
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`Fetching user profile (attempt ${attempt}/${maxRetries})`);
         
-        // Create timeout promise with shorter timeout
+        // Create timeout promise with longer timeout
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Database query timeout')), 5000); // Reduced to 5 seconds
+          setTimeout(() => reject(new Error('Database query timeout')), 15000); // Increased to 15 seconds
         });
 
         // Try simple query first (without joins) - this should be fast
@@ -42,22 +42,8 @@ export class UserService {
           
           if (attempt === maxRetries) {
             console.error('Failed to fetch user profile after all retries');
-            // Return a minimal profile to prevent app crashes
-            const fallbackProfile = {
-              id: userId,
-              name: 'Unknown User',
-              email: '',
-              role: 'employee' as UserRole,
-              branch_id: undefined,
-              is_active: true,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              branch_name: undefined,
-              permissions: UserService.getUserPermissions('employee'),
-              dashboard_route: DASHBOARD_ROUTES.employee
-            };
-            userProfileCache.set(userId, fallbackProfile);
-            return fallbackProfile;
+            // DON'T create fallback profile - return null to prevent wrong role assignment
+            return null;
           }
           
           // Wait before retry
@@ -72,7 +58,7 @@ export class UserService {
           if (data.branch_id) {
             try {
               const branchTimeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Branch query timeout')), 3000); // 3 second timeout for branch
+                setTimeout(() => reject(new Error('Branch query timeout')), 5000); // 5 second timeout for branch
               });
 
               const branchQueryPromise = supabase
@@ -123,22 +109,8 @@ export class UserService {
         
         if (attempt === maxRetries) {
           console.error('Failed to fetch user profile after all retries');
-          // Return a minimal profile to prevent app crashes
-          const fallbackProfile: UserProfile = {
-            id: userId,
-            name: 'Unknown User',
-            email: '',
-            role: 'employee' as UserRole,
-            branch_id: undefined,
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            branch_name: undefined,
-            permissions: UserService.getUserPermissions('employee'),
-            dashboard_route: DASHBOARD_ROUTES.employee
-          };
-          userProfileCache.set(userId, fallbackProfile);
-          return fallbackProfile;
+          // DON'T create fallback profile - return null to prevent wrong role assignment
+          return null;
         }
         
         // Wait before retry
@@ -412,6 +384,28 @@ export class UserService {
         return '/employee/dashboard';
       default:
         return '/';
+    }
+  }
+
+  // Update user password (Admin only)
+  static async updateUserPassword(userId: string, newPassword: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch('/api/admin/users/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, newPassword })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: result.error || 'Failed to update password' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating user password:', error);
+      return { success: false, error: 'Network error occurred' };
     }
   }
 

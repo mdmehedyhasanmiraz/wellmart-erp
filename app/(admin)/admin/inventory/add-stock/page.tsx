@@ -23,7 +23,6 @@ export default function AddStockPage() {
   const [batchNumber, setBatchNumber] = useState<string>('');
   const [expiryDate, setExpiryDate] = useState<string>('');
   const [manufacturingDate, setManufacturingDate] = useState<string>('');
-  const [supplierBatchNumber, setSupplierBatchNumber] = useState<string>('');
   const [costPrice, setCostPrice] = useState<number>(0);
   const [loadingBatchNumber, setLoadingBatchNumber] = useState<boolean>(false);
 
@@ -79,7 +78,6 @@ export default function AddStockPage() {
           batch_number: batchNumber.trim(),
           expiry_date: expiryDate || undefined,
           manufacturing_date: manufacturingDate || undefined,
-          supplier_batch_number: supplierBatchNumber.trim() || undefined,
           cost_price: costPrice > 0 ? costPrice : undefined,
           quantity_received: quantity
         };
@@ -198,17 +196,6 @@ export default function AddStockPage() {
                       {loadingBatchNumber ? '...' : 'Generate'}
                     </button>
                   </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm text-gray-600 mb-2">Supplier Batch Number</label>
-                  <input
-                    type="text"
-                    value={supplierBatchNumber}
-                    onChange={(e) => setSupplierBatchNumber(e.target.value)}
-                    placeholder="Optional supplier batch number"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
                 </div>
                 
                 <div>
