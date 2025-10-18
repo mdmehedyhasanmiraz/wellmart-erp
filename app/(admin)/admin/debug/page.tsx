@@ -4,16 +4,16 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import AdminSidebar from '../components/AdminSidebar';
-import { User as SupabaseUser, Session } from '@supabase/supabase-js';
-import { UserProfile } from '@/types/user';
+import { Session } from '@supabase/supabase-js';
+import { UserProfile, UserRole } from '@/types/user';
 
 interface DebugInfo {
   timestamp: string;
   user: {
     id: string;
     email: string | undefined;
-    role: any;
-    branch_id: any;
+    role: UserRole | undefined;
+    branch_id: string | undefined;
     created_at: string;
   } | null;
   userProfile: UserProfile | null;
