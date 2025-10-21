@@ -158,7 +158,7 @@ export default function NewPurchasePage() {
       status: 'posted',
     });
     if (!order) { setSubmitting(false); alert('Failed to create order'); return; }
-    const ok = await PurchaseService.addOrderItem(order.id, lines as unknown as Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>);
+    const ok = await PurchaseService.addItems(order.id, lines as unknown as Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>);
     setSubmitting(false);
     if (ok) {
       router.push('/admin/purchases');

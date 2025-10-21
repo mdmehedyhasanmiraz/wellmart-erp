@@ -139,6 +139,30 @@ export class PurchaseService {
     return data;
   }
 
+  static async addItems(orderId: string, items: Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>): Promise<boolean> {
+    try {
+      const itemsWithTotals = items.map(item => ({
+        ...item,
+        order_id: orderId,
+        total: (item.unit_price * item.quantity) - item.discount_amount - (item.unit_price * item.quantity * item.discount_percent / 100)
+      }));
+
+      const { error } = await this.supabase
+        .from('purchase_order_items')
+        .insert(itemsWithTotals);
+
+      if (error) {
+        console.error('addItems error', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('addItems error', error);
+      return false;
+    }
+  }
+
   static async updateOrderItem(itemId: string, updates: Partial<PurchaseOrderItem>): Promise<boolean> {
     const { error } = await this.supabase
       .from('purchase_order_items')
