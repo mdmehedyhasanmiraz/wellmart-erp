@@ -146,7 +146,7 @@ export default function BranchEditSalePage() {
         <div className="p-8 w-full">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900">Sales Order Not Found</h1>
-            <p className="text-gray-600 mt-2">The sales order you're looking for doesn't exist or you don't have permission to view it.</p>
+            <p className="text-gray-600 mt-2">The sales order you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it.</p>
             <button
               onClick={() => router.push('/branch/sales')}
               className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"

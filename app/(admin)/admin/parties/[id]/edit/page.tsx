@@ -141,7 +141,7 @@ export default function AdminEditPartyPage() {
         <div className="p-8 w-full">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900">Party Not Found</h1>
-            <p className="text-gray-600 mt-2">The party you're looking for doesn't exist.</p>
+            <p className="text-gray-600 mt-2">The party you&apos;re looking for doesn&apos;t exist.</p>
             <button
               onClick={() => router.push('/admin/parties')}
               className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
