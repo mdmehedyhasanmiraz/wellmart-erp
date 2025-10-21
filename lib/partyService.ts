@@ -49,6 +49,54 @@ export class PartyService {
     }
     return data as Party;
   }
+
+  static async getById(id: string): Promise<Party | null> {
+    const { data, error } = await supabase
+      .from('parties')
+      .select('*')
+      .eq('id', id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching party by ID', error);
+      return null;
+    }
+    
+    return data as Party;
+  }
+
+  static async update(id: string, payload: Partial<CreatePartyData>): Promise<boolean> {
+    const { error } = await supabase
+      .from('parties')
+      .update({
+        name: payload.name,
+        party_code: payload.party_code,
+        contact_person: payload.contact_person,
+        phone: payload.phone,
+        email: payload.email,
+        shop_no: payload.shop_no,
+        address_line1: payload.address_line1,
+        address_line2: payload.address_line2,
+        city: payload.city,
+        state: payload.state,
+        postal_code: payload.postal_code,
+        country: payload.country,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        employee_id: payload.employee_id ?? undefined,
+        branch_id: payload.branch_id ?? undefined,
+        is_active: payload.is_active,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating party', error);
+      return false;
+    }
+    
+    return true;
+  }
 }
 
 
