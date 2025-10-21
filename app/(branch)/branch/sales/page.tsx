@@ -31,7 +31,7 @@ export default function BranchSalesPage() {
         const [ordersData, branchesData, partiesData, employeesData] = await Promise.all([
           SalesService.getOrdersByBranch(userProfile.branch_id),
           BranchService.getAll(),
-          PartyService.getAllParties(),
+          PartyService.list(),
           EmployeeService.getAll(),
         ]);
 

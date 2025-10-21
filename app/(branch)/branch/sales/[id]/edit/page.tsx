@@ -48,7 +48,7 @@ export default function BranchEditSalePage() {
           SalesService.getOrderPayments(orderId),
           ProductService.getAllProducts(),
           BranchService.getAll(),
-          PartyService.getAllParties(),
+          PartyService.list(),
           EmployeeService.getAll(),
         ]);
 
@@ -101,7 +101,6 @@ export default function BranchEditSalePage() {
         amount: newPayment.amount,
         method: newPayment.method,
         reference: newPayment.reference || undefined,
-        paid_at: new Date().toISOString(),
       });
 
       if (success) {
