@@ -2,18 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import BranchSidebar from '@/app/(branch)/branch/components/BranchSidebar';
+import AdminSidebar from '@/app/(admin)/admin/components/AdminSidebar';
 import { Party, Branch, Employee } from '@/types/user';
 import { PartyService } from '@/lib/partyService';
 import { BranchService } from '@/lib/branchService';
 import { EmployeeService } from '@/lib/employeeService';
-import { useAuth } from '@/contexts/AuthContext';
 
-export default function BranchEditPartyPage() {
+export default function AdminEditPartyPage() {
   const router = useRouter();
   const params = useParams();
   const partyId = params.id as string;
-  const { userProfile } = useAuth();
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,7 +41,7 @@ export default function BranchEditPartyPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!partyId || !userProfile?.branch_id) return;
+      if (!partyId) return;
       
       try {
         const [partyData, branchesData, employeesData] = await Promise.all([
@@ -52,16 +50,9 @@ export default function BranchEditPartyPage() {
           EmployeeService.getAll(),
         ]);
 
-        // Check if party belongs to user's branch or is unassigned
-        if (partyData && partyData.branch_id !== userProfile.branch_id && partyData.branch_id !== null) {
-          alert('You can only edit parties from your own branch');
-          router.push('/branch/parties');
-          return;
-        }
-
         setParty(partyData);
         setBranches(branchesData);
-        setEmployees(employeesData.filter(emp => emp.branch_id === userProfile.branch_id));
+        setEmployees(employeesData);
 
         if (partyData) {
           setForm({
@@ -93,7 +84,7 @@ export default function BranchEditPartyPage() {
     };
 
     loadData();
-  }, [partyId, userProfile?.branch_id, router]);
+  }, [partyId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,7 +105,7 @@ export default function BranchEditPartyPage() {
 
       const success = await PartyService.update(partyId, partyData);
       if (success) {
-        router.push('/branch/parties');
+        router.push('/admin/parties');
       } else {
         alert('Failed to update party');
       }
@@ -133,7 +124,7 @@ export default function BranchEditPartyPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex">
-        <BranchSidebar />
+        <AdminSidebar />
         <div className="p-8 w-full">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-500 border-t-transparent"></div>
@@ -146,13 +137,13 @@ export default function BranchEditPartyPage() {
   if (!party) {
     return (
       <div className="min-h-screen bg-gray-100 flex">
-        <BranchSidebar />
+        <AdminSidebar />
         <div className="p-8 w-full">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900">Party Not Found</h1>
-            <p className="text-gray-600 mt-2">The party you're looking for doesn't exist or you don't have permission to edit it.</p>
+            <p className="text-gray-600 mt-2">The party you're looking for doesn't exist.</p>
             <button
-              onClick={() => router.push('/branch/parties')}
+              onClick={() => router.push('/admin/parties')}
               className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
             >
               Back to Parties
@@ -165,7 +156,7 @@ export default function BranchEditPartyPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      <BranchSidebar />
+      <AdminSidebar />
       <div className="p-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -173,7 +164,7 @@ export default function BranchEditPartyPage() {
             <p className="text-gray-600">Update party information for {party.name}</p>
           </div>
           <button
-            onClick={() => router.push('/branch/parties')}
+            onClick={() => router.push('/admin/parties')}
             className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             Back to Parties
@@ -368,7 +359,7 @@ export default function BranchEditPartyPage() {
           <div className="flex justify-end space-x-4">
             <button
               type="button"
-              onClick={() => router.push('/branch/parties')}
+              onClick={() => router.push('/admin/parties')}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
             >
               Cancel

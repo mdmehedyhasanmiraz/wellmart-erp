@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AdminSidebar from '../../components/AdminSidebar';
+import AdminSidebar from '@/app/(admin)/admin/components/AdminSidebar';
 import { SalesOrder, SalesOrderItem, SalesPayment } from '@/types/user';
 import { SalesService } from '@/lib/salesService';
 import { useParams, useRouter } from 'next/navigation';

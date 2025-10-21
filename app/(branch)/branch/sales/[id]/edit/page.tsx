@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import BranchSidebar from '../../components/BranchSidebar';
+import BranchSidebar from '@/app/(branch)/branch/components/BranchSidebar';
 import { SalesOrder, SalesOrderItem, Product, Branch, Party, Employee, SalesPayment } from '@/types/user';
 import { SalesService } from '@/lib/salesService';
 import { ProductService } from '@/lib/productService';

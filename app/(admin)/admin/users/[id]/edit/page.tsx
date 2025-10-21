@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Branch, UpdateUserData, User } from '@/types/user';
 import { UserService } from '@/lib/userService';
-import AdminSidebar from '../../../components/AdminSidebar';
+import AdminSidebar from '@/app/(admin)/admin/components/AdminSidebar';
 
 export default function EditUserPage() {
   const router = useRouter();

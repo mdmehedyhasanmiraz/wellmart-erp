@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import AdminSidebar from '../../components/AdminSidebar';
+import AdminSidebar from '@/app/(admin)/admin/components/AdminSidebar';
 import { PurchaseOrder, PurchaseOrderItem, Product, Branch, Supplier, Employee, PurchasePayment } from '@/types/user';
 import { PurchaseService } from '@/lib/purchaseService';
 import { ProductService } from '@/lib/productService';
