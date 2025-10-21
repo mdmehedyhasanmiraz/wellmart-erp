@@ -29,7 +29,7 @@ export default function BranchSalesPage() {
         }
 
         const [ordersData, branchesData, partiesData, employeesData] = await Promise.all([
-          SalesService.getOrdersByBranch(userProfile.branch_id),
+          SalesService.listOrders({ branchId: userProfile.branch_id }),
           BranchService.getAll(),
           PartyService.list(),
           EmployeeService.getAll(),
