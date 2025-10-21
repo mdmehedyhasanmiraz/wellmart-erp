@@ -55,6 +55,24 @@ const branchMenuItems = [
     ),
   },
   {
+    name: 'Sales',
+    href: '/branch/sales',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+      </svg>
+    ),
+  },
+  {
+    name: 'Purchases',
+    href: '/branch/purchases',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+      </svg>
+    ),
+  },
+  {
     name: 'Parties',
     href: '/branch/parties',
     icon: (
@@ -181,11 +199,11 @@ export default function BranchSidebar() {
     },
     {
       title: 'Operations',
-      items: filteredMenuItems.slice(1, filteredMenuItems.findIndex(item => item.name === 'Transfers') + 1), // Products, Inventory, Add Stock (if MAIN), Transfers
+      items: filteredMenuItems.slice(1, filteredMenuItems.findIndex(item => item.name === 'Purchases') + 1), // Products, Inventory, Add Stock (if MAIN), Transfers, Sales, Purchases
     },
     {
       title: 'Management',
-      items: filteredMenuItems.slice(filteredMenuItems.findIndex(item => item.name === 'Transfers') + 1, filteredMenuItems.findIndex(item => item.name === 'Branches')), // Parties, Suppliers, Employees, Designations, Allowances, Users
+      items: filteredMenuItems.slice(filteredMenuItems.findIndex(item => item.name === 'Parties'), filteredMenuItems.findIndex(item => item.name === 'Branches')), // Parties, Suppliers, Employees, Designations, Allowances, Users
     },
     {
       title: 'Organization',
