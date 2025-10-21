@@ -1,0 +1,723 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { supabase } from '@/lib/supabase';
+
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const orderId = searchParams.get('orderId');
+
+    if (!orderId) {
+      return NextResponse.json({ error: 'Order ID is required' }, { status: 400 });
+    }
+
+    // Create Supabase client with service role key to bypass RLS
+    const supabaseClient = supabase;
+
+    // Fetch purchase order details
+    const { data: orders, error: orderError } = await supabaseClient
+      .from('purchase_orders')
+      .select('*')
+      .eq('id', orderId);
+
+    if (orderError || !orders || orders.length === 0) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    const order = orders[0];
+
+    // Fetch branch details
+    const { data: branches, error: branchError } = await supabaseClient
+      .from('branches')
+      .select('*')
+      .eq('id', order.branch_id);
+
+    if (branchError || !branches || branches.length === 0) {
+      return NextResponse.json({ error: 'Branch not found' }, { status: 404 });
+    }
+
+    // Fetch supplier details
+    let suppliers = null;
+    if (order.supplier_id) {
+      const { data: supplierData, error: supplierError } = await supabaseClient
+        .from('suppliers')
+        .select('*')
+        .eq('id', order.supplier_id);
+      
+      if (!supplierError && supplierData && supplierData.length > 0) {
+        suppliers = supplierData[0];
+      }
+    }
+
+    // Fetch employee details
+    let employees = null;
+    if (order.employee_id) {
+      const { data: employeeData, error: employeeError } = await supabaseClient
+        .from('employees')
+        .select('*')
+        .eq('id', order.employee_id);
+      
+      if (!employeeError && employeeData && employeeData.length > 0) {
+        employees = employeeData[0];
+      }
+    }
+
+    // Fetch purchase order items
+    const { data: items, error: itemsError } = await supabaseClient
+      .from('purchase_order_items')
+      .select('*')
+      .eq('order_id', orderId);
+
+    if (itemsError) {
+      return NextResponse.json({ error: 'Failed to fetch order items' }, { status: 500 });
+    }
+
+    // Fetch product details for each item
+    const productIds = items?.map(item => item.product_id) || [];
+    let products = [];
+    if (productIds.length > 0) {
+      const { data: productData, error: productError } = await supabaseClient
+        .from('products')
+        .select('*')
+        .in('id', productIds);
+      
+      if (!productError && productData) {
+        products = productData;
+      }
+    }
+
+    // Fetch purchase payments
+    const { data: payments, error: paymentsError } = await supabaseClient
+      .from('purchase_payments')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('paid_at', { ascending: false });
+
+    if (paymentsError) {
+      return NextResponse.json({ error: 'Failed to fetch payments' }, { status: 500 });
+    }
+
+    // Generate PDF
+    const pdfBytes = await generatePDFInvoice(order, items || [], payments || [], branches[0], suppliers, employees, products);
+
+    return new NextResponse(Buffer.from(pdfBytes), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="purchase-invoice-${orderId.slice(0, 8)}.pdf"`,
+      },
+    });
+
+  } catch (error) {
+    console.error('Error generating purchase invoice:', error);
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
+  }
+}
+
+async function generatePDFInvoice(order: any, items: any[], payments: any[], branch: any, supplier: any, employee: any, products: any[]) {
+  // Create a new PDF document
+  const pdfDoc = await PDFDocument.create();
+  let page = pdfDoc.addPage([595.28, 841.89]); // A4 size
+  const { width, height } = page.getSize();
+
+  // Load fonts
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Colors
+  const primaryColor = rgb(0.2, 0.2, 0.2); // Dark gray
+  const textColor = rgb(0.2, 0.2, 0.2);
+  const lightGray = rgb(0.9, 0.9, 0.9);
+  const accentColor = rgb(0.1, 0.1, 0.1);
+
+  // Helper function to check if we need a new page
+  const checkPageSpace = (requiredSpace: number) => {
+    return yPos - requiredSpace < 100; // 100 points margin from bottom
+  };
+
+  // Helper function to add a new page
+  const addNewPage = () => {
+    page = pdfDoc.addPage([595.28, 841.89]);
+    yPos = height - 72; // Reset to top margin
+    return page;
+  };
+
+  // 1 inch = 72 points margin from top
+  const topMargin = 72;
+  let yPos = height - topMargin;
+
+  // Invoice header with clean design
+  const invoiceNumber = order.id.slice(0, 8).toUpperCase();
+  const invoiceDate = new Date(order.created_at).toLocaleDateString();
+
+  // Main invoice title
+  page.drawText('PURCHASE ORDER', {
+    x: 50,
+    y: yPos,
+    size: 28,
+    font: boldFont,
+    color: accentColor,
+  });
+
+  yPos -= 50;
+
+  // Two-column layout for supplier info and invoice details
+  const leftColumnX = 50;
+  const rightColumnX = width / 2 + 25;
+  const columnWidth = (width - 100) / 2 - 25;
+
+  // Left column - Supplier Information
+  page.drawText('Supplier Information', {
+    x: leftColumnX,
+    y: yPos,
+    size: 14,
+    font: boldFont,
+    color: accentColor,
+  });
+
+  let leftYPos = yPos - 25;
+  page.drawText(`Name:`, {
+    x: leftColumnX,
+    y: leftYPos,
+    size: 10,
+    font: font,
+    color: textColor,
+  });
+  page.drawText(`${order.supplier_name || 'Walk-in Supplier'}`, {
+    x: leftColumnX + 80,
+    y: leftYPos,
+    size: 10,
+    font: font,
+    color: textColor,
+  });
+
+  leftYPos -= 15;
+  page.drawText(`Phone:`, {
+    x: leftColumnX,
+    y: leftYPos,
+    size: 10,
+    font: font,
+    color: textColor,
+  });
+  page.drawText(`${order.supplier_phone || 'N/A'}`, {
+    x: leftColumnX + 80,
+    y: leftYPos,
+    size: 10,
+    font: font,
+    color: textColor,
+  });
+
+  if (supplier) {
+    leftYPos -= 15;
+    page.drawText(`Supplier Code:`, {
+      x: leftColumnX,
+      y: leftYPos,
+      size: 10,
+      font: font,
+      color: textColor,
+    });
+    page.drawText(`${supplier.supplier_code || 'N/A'}`, {
+      x: leftColumnX + 80,
+      y: leftYPos,
+      size: 10,
+      font: font,
+      color: textColor,
+    });
+
+    if (supplier.contact_person) {
+      leftYPos -= 15;
+      page.drawText(`Contact Person:`, {
+        x: leftColumnX,
+        y: leftYPos,
+        size: 10,
+        font: font,
+        color: textColor,
+      });
+      page.drawText(`${supplier.contact_person}`, {
+        x: leftColumnX + 80,
+        y: leftYPos,
+        size: 10,
+        font: font,
+        color: textColor,
+      });
+    }
+
+    if (supplier.email) {
+      leftYPos -= 15;
+      page.drawText(`Email:`, {
+        x: leftColumnX,
+        y: leftYPos,
+        size: 10,
+        font: font,
+        color: textColor,
+      });
+      page.drawText(`${supplier.email}`, {
+        x: leftColumnX + 80,
+        y: leftYPos,
+        size: 10,
+        font: font,
+        color: textColor,
+      });
+    }
+
+    if (supplier.address_line1) {
+      leftYPos -= 15;
+      page.drawText(`Address:`, {
+        x: leftColumnX,
+        y: leftYPos,
+        size: 10,
+        font: font,
+        color: textColor,
+      });
+      page.drawText(`${supplier.address_line1}`, {
+        x: leftColumnX + 80,
+        y: leftYPos,
+        size: 10,
+        font: font,
+        color: textColor,
+      });
+    }
+  }
+
+  // Right column - Invoice Details
+  const rightColumnY = yPos;
+  page.drawText('Purchase Details', {
+    x: rightColumnX,
+    y: rightColumnY,
+    size: 14,
+    font: boldFont,
+    color: accentColor,
+  });
+
+  let rightYPos = rightColumnY - 25;
+  const invoiceDetails = [
+    { label: 'Order #:', value: invoiceNumber },
+    { label: 'Date:', value: invoiceDate },
+    { label: 'Status:', value: order.status.toUpperCase() },
+    { label: 'Employee:', value: employee?.name || 'N/A' },
+  ];
+
+  invoiceDetails.forEach((detail) => {
+    page.drawText(detail.label, {
+      x: rightColumnX,
+      y: rightYPos,
+      size: 10,
+      font: font,
+      color: textColor,
+    });
+    page.drawText(detail.value, {
+      x: rightColumnX + 80,
+      y: rightYPos,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+    rightYPos -= 20;
+  });
+
+  // Bill From section in right column
+  rightYPos -= 20;
+  page.drawText('Bill From:', {
+    x: rightColumnX,
+    y: rightYPos,
+    size: 12,
+    font: boldFont,
+    color: textColor,
+  });
+
+  rightYPos -= 20;
+  page.drawText(`Branch: ${branch.name}`, {
+    x: rightColumnX,
+    y: rightYPos,
+    size: 10,
+    font: font,
+    color: textColor,
+  });
+
+  rightYPos -= 15;
+  page.drawText(`Address: ${branch.address || 'N/A'}`, {
+    x: rightColumnX,
+    y: rightYPos,
+    size: 10,
+    font: font,
+    color: textColor,
+  });
+
+  // Reset yPos to the lower of the two columns for items section
+  yPos = Math.min(leftYPos, rightYPos) - 20;
+
+  // Items table section
+  yPos -= 20;
+  const tableStartY = yPos;
+  const tableWidth = width - 100;
+  const colWidths = [150, 80, 40, 80, 80, 30, 120]; // Product, Batch, Qty, Unit Price, Discount, Total
+
+  // Draw table header background
+  page.drawRectangle({
+    x: 50,
+    y: yPos - 20,
+    width: tableWidth,
+    height: 20,
+    color: lightGray,
+  });
+
+  // Table headers
+  const headers = ['Product', 'Batch', 'Qty', 'Unit Price', 'Discount', 'Total'];
+  let xPos = 50;
+  headers.forEach((header, index) => {
+    page.drawText(header, {
+      x: xPos + 5,
+      y: yPos - 15,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+    xPos += colWidths[index];
+  });
+
+  // Items
+  yPos -= 24;
+  items.forEach((item) => {
+    // Check if we need a new page for each item row
+    if (checkPageSpace(20)) {
+      addNewPage();
+      // Redraw table header on new page
+      page.drawRectangle({
+        x: 50,
+        y: yPos - 20,
+        width: tableWidth,
+        height: 20,
+        color: lightGray,
+      });
+      
+      let headerXPos = 50;
+      headers.forEach((header, index) => {
+        page.drawText(header, {
+          x: headerXPos + 5,
+          y: yPos - 15,
+          size: 10,
+          font: boldFont,
+          color: textColor,
+        });
+        headerXPos += colWidths[index];
+      });
+      yPos -= 24;
+    }
+    
+    // Draw row background
+    page.drawRectangle({
+      x: 50,
+      y: yPos - 15,
+      width: tableWidth,
+      height: 15,
+      color: rgb(0.98, 0.98, 0.98),
+    });
+
+    // Product name
+    const product = products.find(p => p.id === item.product_id);
+    page.drawText(product?.name || 'N/A', {
+      x: 55,
+      y: yPos - 12,
+      size: 9,
+      font: font,
+      color: textColor,
+    });
+
+    // Batch number
+    page.drawText(item.batch_number || '-', {
+      x: 205,
+      y: yPos - 12,
+      size: 9,
+      font: font,
+      color: textColor,
+    });
+
+    // Quantity
+    page.drawText(item.quantity.toString(), {
+      x: 285,
+      y: yPos - 12,
+      size: 9,
+      font: font,
+      color: textColor,
+    });
+
+    // Unit price
+    page.drawText(`BDT ${item.unit_price.toFixed(2)}`, {
+      x: 325,
+      y: yPos - 12,
+      size: 9,
+      font: font,
+      color: textColor,
+    });
+
+    // Discount
+    page.drawText(`BDT ${item.discount_amount.toFixed(2)}`, {
+      x: 405,
+      y: yPos - 12,
+      size: 9,
+      font: font,
+      color: textColor,
+    });
+
+    // Total
+    page.drawText(`BDT ${item.total.toFixed(2)}`, {
+      x: 465,
+      y: yPos - 12,
+      size: 9,
+      font: font,
+      color: textColor,
+    });
+
+    yPos -= 20;
+  });
+
+  // Totals section with clean design
+  yPos -= 30;
+  
+  // Draw a subtle line separator
+  page.drawLine({
+    start: { x: 50, y: yPos },
+    end: { x: width - 50, y: yPos },
+    thickness: 1,
+    color: lightGray,
+  });
+  
+  yPos -= 20;
+
+  // Subtotal
+  page.drawText('Subtotal:', {
+    x: width - 240,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+  page.drawText(`BDT ${order.subtotal.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+
+  yPos -= 15;
+  page.drawText('Discount:', {
+    x: width - 240,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+  page.drawText(`-BDT ${order.discount_total.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+
+  yPos -= 15;
+  page.drawText('Tax:', {
+    x: width - 240,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+  page.drawText(`BDT ${order.tax_total.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+
+  yPos -= 15;
+  page.drawText('Shipping:', {
+    x: width - 240,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+  page.drawText(`BDT ${order.shipping_total.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+
+  // Grand total with emphasis
+  yPos -= 5;
+  page.drawLine({
+    start: { x: width - 300, y: yPos },
+    end: { x: width - 50, y: yPos },
+    thickness: 1,
+    color: lightGray,
+  });
+  
+  yPos -= 15;
+  page.drawText('Grand Total:', {
+    x: width - 240,
+    y: yPos,
+    size: 10,
+    font: boldFont,
+    color: accentColor,
+  });
+
+  page.drawText(`BDT ${order.grand_total.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 10,
+    font: boldFont,
+    color: accentColor,
+  });
+  
+  yPos -= 15;
+  page.drawText(`Paid Amount:`, {
+    x: width - 240,
+    y: yPos,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+
+  page.drawText(`BDT ${order.paid_total.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 9,
+    font: boldFont,
+    color: textColor,
+  });
+
+  yPos -= 15;
+  page.drawText(`Due Amount:`, {
+    x: width - 240,
+    y: yPos,
+    size: 9,
+    font: boldFont,
+    color: textColor,
+  });
+
+  page.drawText(`BDT ${order.due_total.toFixed(2)}`, {
+    x: width - 130,
+    y: yPos,
+    size: 9,
+    font: boldFont,
+    color: textColor,
+  });
+
+  // Payment History Section
+  if (payments && payments.length > 0) {
+    // Calculate required space for payment history
+    const paymentHistorySpace = 50 + (payments.length * 20) + 50; // Header + rows + footer
+    
+    // Check if we need a new page for payment history
+    if (checkPageSpace(paymentHistorySpace)) {
+      addNewPage();
+    }
+    
+    yPos -= 20;
+    
+    // Payment History Header
+    page.drawText('Payment History', {
+      x: 50,
+      y: yPos,
+      size: 12,
+      font: boldFont,
+      color: accentColor,
+    });
+    
+    yPos -= 15;
+    
+    // Payment History Table Header with background
+    page.drawRectangle({
+      x: 50,
+      y: yPos - 20,
+      width: width - 100,
+      height: 20,
+      color: lightGray,
+    });
+    
+    page.drawText('Date', {
+      x: 50,
+      y: yPos - 15,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+    page.drawText('Method', {
+      x: 150,
+      y: yPos - 15,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+    page.drawText('Reference', {
+      x: 250,
+      y: yPos - 15,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+    page.drawText('Amount', {
+      x: 400,
+      y: yPos - 15,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+    
+    yPos -= 35;
+    
+    // Payment History Rows
+    payments.forEach((payment) => {
+      // Check if we need a new page for each payment row
+      if (checkPageSpace(20)) {
+        addNewPage();
+      }
+      
+      const paymentDate = new Date(payment.paid_at).toLocaleDateString();
+      
+      page.drawText(paymentDate, {
+        x: 50,
+        y: yPos,
+        size: 9,
+        font: font,
+        color: textColor,
+      });
+      
+      page.drawText(payment.method || 'Cash', {
+        x: 150,
+        y: yPos,
+        size: 9,
+        font: font,
+        color: textColor,
+      });
+      
+      page.drawText(payment.reference || '-', {
+        x: 250,
+        y: yPos,
+        size: 9,
+        font: font,
+        color: textColor,
+      });
+      
+      page.drawText(`BDT ${payment.amount.toFixed(2)}`, {
+        x: 400,
+        y: yPos,
+        size: 9,
+        font: font,
+        color: textColor,
+      });
+      
+      yPos -= 18;
+    });
+  }
+
+  // Return PDF bytes
+  return await pdfDoc.save();
+}

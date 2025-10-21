@@ -7,11 +7,16 @@ export class SalesService {
       .from('sales_orders')
       .insert({
         branch_id: payload.branch_id,
+        party_id: payload.party_id || null,
+        employee_id: payload.employee_id || null,
         customer_name: payload.customer_name,
         customer_phone: payload.customer_phone,
         discount_total: payload.discount_total ?? 0,
         tax_total: payload.tax_total ?? 0,
         shipping_total: payload.shipping_total ?? 0,
+        paid_total: payload.paid_total ?? 0,
+        due_total: payload.due_total ?? 0,
+        status: payload.status || 'posted',
         note: payload.note,
       })
       .select()
@@ -110,6 +115,70 @@ export class SalesService {
       console.error('postOrder error', error);
       return false;
     }
+    return true;
+  }
+
+  static async getOrderById(orderId: string): Promise<SalesOrder | null> {
+    const { data, error } = await supabase
+      .from('sales_orders')
+      .select('*')
+      .eq('id', orderId)
+      .single();
+    
+    if (error) {
+      console.error('getOrderById error', error);
+      return null;
+    }
+    return data as SalesOrder;
+  }
+
+  static async getOrderItems(orderId: string): Promise<SalesOrderItem[]> {
+    const { data, error } = await supabase
+      .from('sales_order_items')
+      .select('*')
+      .eq('order_id', orderId);
+    
+    if (error) {
+      console.error('getOrderItems error', error);
+      return [];
+    }
+    return data as SalesOrderItem[];
+  }
+
+  static async getOrderPayments(orderId: string): Promise<SalesPayment[]> {
+    const { data, error } = await supabase
+      .from('sales_payments')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('paid_at', { ascending: true });
+    
+    if (error) {
+      console.error('getOrderPayments error', error);
+      return [];
+    }
+    return data as SalesPayment[];
+  }
+
+  static async updateOrder(orderId: string, updates: Partial<SalesOrder>): Promise<boolean> {
+    const { error } = await supabase
+      .from('sales_orders')
+      .update({
+        customer_name: updates.customer_name,
+        customer_phone: updates.customer_phone,
+        discount_total: updates.discount_total,
+        tax_total: updates.tax_total,
+        shipping_total: updates.shipping_total,
+        note: updates.note,
+      })
+      .eq('id', orderId);
+    
+    if (error) {
+      console.error('updateOrder error', error);
+      return false;
+    }
+    
+    // Recalculate totals after update
+    await supabase.rpc('recalc_sales_totals', { p_order_id: orderId });
     return true;
   }
 }

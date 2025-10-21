@@ -17,8 +17,6 @@ import {
   Factory,
   User,
   GitBranch,
-  Tags,
-  Building2,
   BarChart3,
   Settings as SettingsIcon,
   Briefcase,
@@ -167,7 +165,7 @@ export default function AdminSidebar() {
           </div>
           <div>
             <h1 className="text-white font-bold text-xl">Admin Panel</h1>
-            <p className="text-white/90 text-sm">Wellmart ERP</p>
+            <p className="text-white/90 text-sm">Wellcare ERP</p>
           </div>
         </div>
       </div>

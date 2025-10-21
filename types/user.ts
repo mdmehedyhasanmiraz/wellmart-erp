@@ -499,6 +499,7 @@ export interface SalesOrder {
   id: string;
   branch_id: string;
   party_id?: string;
+  employee_id?: string;
   customer_name?: string;
   customer_phone?: string;
   status: SalesStatus;
@@ -538,6 +539,86 @@ export interface SalesPayment {
   received_by?: string;
 }
 
+// Purchase types
+export type PurchaseStatus = 'draft' | 'posted' | 'cancelled' | 'returned';
+
+export interface PurchaseOrder {
+  id: string;
+  branch_id: string;
+  supplier_id?: string;
+  employee_id?: string;
+  supplier_name?: string;
+  supplier_phone?: string;
+  status: PurchaseStatus;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  shipping_total: number;
+  grand_total: number;
+  paid_total: number;
+  due_total: number;
+  note?: string;
+  created_by?: string;
+  posted_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  discount_percent: number;
+  total: number;
+  batch_number?: string;
+}
+
+export interface PurchasePayment {
+  id: string;
+  order_id: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  paid_at: string;
+  received_by?: string;
+}
+
+export interface CreatePurchaseOrderData {
+  branch_id: string;
+  supplier_id?: string;
+  employee_id?: string;
+  supplier_name?: string;
+  supplier_phone?: string;
+  status?: PurchaseStatus;
+  subtotal?: number;
+  discount_total?: number;
+  tax_total?: number;
+  shipping_total?: number;
+  grand_total?: number;
+  paid_total?: number;
+  due_total?: number;
+  note?: string;
+}
+
+export interface UpdatePurchaseOrderData {
+  supplier_id?: string;
+  employee_id?: string;
+  supplier_name?: string;
+  supplier_phone?: string;
+  status?: PurchaseStatus;
+  subtotal?: number;
+  discount_total?: number;
+  tax_total?: number;
+  shipping_total?: number;
+  grand_total?: number;
+  paid_total?: number;
+  due_total?: number;
+  note?: string;
+}
+
 // Party (customer) types
 export interface Party {
   id: string;
@@ -556,8 +637,114 @@ export interface Party {
   latitude?: number;
   longitude?: number;
   is_active: boolean;
+  branch_id?: string;
+  created_by?: string;
+  employee_id?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreatePartyData {
+  name: string;
+  party_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  branch_id?: string;
+  employee_id?: string;
+}
+
+export interface UpdatePartyData {
+  name?: string;
+  party_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  branch_id?: string;
+  employee_id?: string;
+  is_active?: boolean;
+}
+
+// Supplier types
+export interface Supplier {
+  id: string;
+  name: string;
+  supplier_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  is_active: boolean;
+  branch_id?: string;
+  created_by?: string;
+  employee_id?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateSupplierData {
+  name: string;
+  supplier_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  branch_id?: string;
+  employee_id?: string;
+}
+
+export interface UpdateSupplierData {
+  name?: string;
+  supplier_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  branch_id?: string;
+  employee_id?: string;
+  is_active?: boolean;
 }
 
 // Allowances

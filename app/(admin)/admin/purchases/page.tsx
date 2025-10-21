@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
-import { Branch, SalesOrder } from '@/types/user';
+import { Branch, PurchaseOrder } from '@/types/user';
 import { BranchService } from '@/lib/branchService';
-import { SalesService } from '@/lib/salesService';
+import { PurchaseService } from '@/lib/purchaseService';
 import Link from 'next/link';
 
-export default function SalesListPage() {
+export default function PurchasesListPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState<string>('');
   const [status, setStatus] = useState<string>('');
-  const [orders, setOrders] = useState<SalesOrder[]>([]);
+  const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -24,8 +24,10 @@ export default function SalesListPage() {
   useEffect(() => {
     if (!branchId) return;
     setLoading(true);
-    SalesService.listOrders({ branchId, status }).then((o) => {
-      setOrders(o);
+    PurchaseService.getOrdersByBranch(branchId).then((o) => {
+      // Filter by status if selected
+      const filteredOrders = status ? o.filter(order => order.status === status) : o;
+      setOrders(filteredOrders);
       setLoading(false);
     });
   }, [branchId, status]);
@@ -36,10 +38,10 @@ export default function SalesListPage() {
       <div className="p-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Sales</h1>
-            <p className="text-gray-600">Invoices and sales orders</p>
+            <h1 className="text-2xl font-bold text-gray-900">Purchases</h1>
+            <p className="text-gray-600">Purchase orders and invoices</p>
           </div>
-          <Link href="/admin/sales/new" className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700">New Invoice</Link>
+          <Link href="/admin/purchases/new" className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700">New Purchase</Link>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -65,7 +67,7 @@ export default function SalesListPage() {
 
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="p-4 border-b">
-            <h2 className="font-semibold">Invoices</h2>
+            <h2 className="font-semibold">Purchase Orders</h2>
           </div>
           {loading ? (
             <div className="py-10 flex justify-center">
@@ -77,7 +79,7 @@ export default function SalesListPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Supplier</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Due</th>
@@ -89,23 +91,23 @@ export default function SalesListPage() {
                   {orders.map((o) => (
                     <tr key={o.id}>
                       <td className="px-4 py-2 text-sm">{o.id.slice(0,8)}</td>
-                      <td className="px-4 py-2 text-sm">{o.customer_name || '-'}</td>
-                      <td className="px-4 py-2 text-sm">৳{o.grand_total?.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-sm">৳{o.paid_total?.toFixed(2)}</td>
-                      <td className="px-4 py-2 text-sm">৳{o.due_total?.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">{o.supplier_name || '-'}</td>
+                      <td className="px-4 py-2 text-sm">BDT {o.grand_total?.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">BDT {o.paid_total?.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">BDT {o.due_total?.toFixed(2)}</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-1 text-xs rounded-full ${o.status === 'posted' ? 'bg-green-100 text-green-800' : o.status === 'draft' ? 'bg-yellow-100 text-yellow-800' : o.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{o.status}</span>
                       </td>
                       <td className="px-4 py-2">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => window.open(`/api/invoice?orderId=${o.id}`, '_blank')}
+                            onClick={() => window.open(`/api/purchase-invoice?orderId=${o.id}`, '_blank')}
                             className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                           >
                             See Invoice
                           </button>
                           <Link
-                            href={`/admin/sales/${o.id}/edit`}
+                            href={`/admin/purchases/${o.id}/edit`}
                             className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                           >
                             Edit
@@ -116,7 +118,7 @@ export default function SalesListPage() {
                   ))}
                 </tbody>
               </table>
-              {orders.length === 0 && (<div className="py-10 text-center text-gray-500">No invoices</div>)}
+              {orders.length === 0 && (<div className="py-10 text-center text-gray-500">No purchase orders</div>)}
             </div>
           )}
         </div>
@@ -124,5 +126,3 @@ export default function SalesListPage() {
     </div>
   );
 }
-
-

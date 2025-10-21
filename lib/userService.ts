@@ -377,11 +377,11 @@ export class UserService {
   static getDashboardRoute(role: UserRole): string {
     switch (role) {
       case 'admin':
-        return '/admin/dashboard';
+        return '/admin';
       case 'branch':
-        return '/branch/dashboard';
+        return '/branch';
       case 'employee':
-        return '/employee/dashboard';
+        return '/employee';
       default:
         return '/';
     }

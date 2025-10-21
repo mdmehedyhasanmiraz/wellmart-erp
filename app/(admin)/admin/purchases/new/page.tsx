@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../../components/AdminSidebar';
-import { Branch, Product, SalesOrder, SalesOrderItem, Employee } from '@/types/user';
+import { Branch, Product, PurchaseOrder, PurchaseOrderItem, Employee } from '@/types/user';
 import { BranchService } from '@/lib/branchService';
 import { ProductService } from '@/lib/productService';
-import { SalesService } from '@/lib/salesService';
+import { PurchaseService } from '@/lib/purchaseService';
 import { InventoryService } from '@/lib/inventoryService';
 import { EmployeeService } from '@/lib/employeeService';
 import { useRouter } from 'next/navigation';
-import { Party, ProductBranchBatchStock } from '@/types/user';
-import { PartyService } from '@/lib/partyService';
+import { Supplier, ProductBranchBatchStock } from '@/types/user';
+import { SupplierService } from '@/lib/supplierService';
 
 type Line = {
   product_id: string;
@@ -21,17 +21,17 @@ type Line = {
   batch_number?: string;
 };
 
-export default function NewSalesPage() {
+export default function NewPurchasePage() {
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [branchId, setBranchId] = useState<string>('');
-  const [parties, setParties] = useState<Party[]>([]);
-  const [partyId, setPartyId] = useState<string>('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierId, setSupplierId] = useState<string>('');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeeId, setEmployeeId] = useState<string>('');
-  const [customerName, setCustomerName] = useState<string>('');
-  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [supplierName, setSupplierName] = useState<string>('');
+  const [supplierPhone, setSupplierPhone] = useState<string>('');
   const [discountTotal, setDiscountTotal] = useState<number>(0);
   const [taxTotal, setTaxTotal] = useState<number>(0);
   const [shippingTotal, setShippingTotal] = useState<number>(0);
@@ -43,18 +43,18 @@ export default function NewSalesPage() {
 
   useEffect(() => {
     const load = async () => {
-      const [b, p, pr, e] = await Promise.all([
+      const [b, p, s, e] = await Promise.all([
         BranchService.getAll(), 
         ProductService.getAllProducts(), 
-        PartyService.list(),
+        SupplierService.getAllSuppliers(),
         EmployeeService.getAll()
       ]);
       setBranches(b);
       setProducts(p);
-      setParties(pr);
+      setSuppliers(s);
       setEmployees(e);
       setBranchId(b[0]?.id || '');
-      setPartyId(pr[0]?.id || '');
+      setSupplierId(s[0]?.id || '');
     };
     load();
   }, []);
@@ -71,27 +71,27 @@ export default function NewSalesPage() {
     }
   }, [branchId, employees]);
 
-  // Filter parties when branch changes and auto-populate customer details
+  // Filter suppliers when branch changes and auto-populate supplier details
   useEffect(() => {
-    if (branchId && parties.length > 0) {
-      // Show parties assigned to current branch OR parties without branch assignment
-      const branchParties = parties.filter(party => 
-        (party.branch_id === branchId || party.branch_id === null) && party.is_active
+    if (branchId && suppliers.length > 0) {
+      // Show suppliers assigned to current branch OR suppliers without branch assignment
+      const branchSuppliers = suppliers.filter(supplier => 
+        (supplier.branch_id === branchId || supplier.branch_id === null) && supplier.is_active
       );
       
-      if (branchParties.length > 0) {
-        setPartyId(branchParties[0].id);
-        // Auto-populate customer details from first party
-        const firstParty = branchParties[0];
-        setCustomerName(firstParty.name);
-        setCustomerPhone(firstParty.phone || '');
+      if (branchSuppliers.length > 0) {
+        setSupplierId(branchSuppliers[0].id);
+        // Auto-populate supplier details from first supplier
+        const firstSupplier = branchSuppliers[0];
+        setSupplierName(firstSupplier.name);
+        setSupplierPhone(firstSupplier.phone || '');
       } else {
-        setPartyId('');
-        setCustomerName('');
-        setCustomerPhone('');
+        setSupplierId('');
+        setSupplierName('');
+        setSupplierPhone('');
       }
     }
-  }, [branchId, parties]);
+  }, [branchId, suppliers]);
 
   const totals = useMemo(() => {
     const lineTotals = lines.map((l) => {
@@ -125,7 +125,7 @@ export default function NewSalesPage() {
     const product = products.find(p => p.id === productId);
     setLine(idx, { 
       product_id: productId, 
-      unit_price: product?.tp || 0,
+      unit_price: product?.pp || 0, // Use purchase price (pp) instead of trade price (tp)
       batch_number: ''
     });
     await loadBatchStocks(productId);
@@ -143,12 +143,12 @@ export default function NewSalesPage() {
   const handleSubmit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
-    const order: SalesOrder | null = await SalesService.createOrder({
+    const order: PurchaseOrder | null = await PurchaseService.createOrder({
       branch_id: branchId,
-      party_id: partyId || undefined,
+      supplier_id: supplierId || undefined,
       employee_id: employeeId || undefined,
-      customer_name: customerName,
-      customer_phone: customerPhone,
+      supplier_name: supplierName,
+      supplier_phone: supplierPhone,
       discount_total: discountTotal,
       tax_total: taxTotal,
       shipping_total: shippingTotal,
@@ -156,12 +156,12 @@ export default function NewSalesPage() {
       due_total: totals.due,
       note,
       status: 'posted',
-    } as Partial<SalesOrder>);
+    } as Partial<PurchaseOrder>);
     if (!order) { setSubmitting(false); alert('Failed to create order'); return; }
-    const ok = await SalesService.addItems(order.id, lines as unknown as Array<Omit<SalesOrderItem, 'id' | 'order_id' | 'total'>>);
+    const ok = await PurchaseService.addOrderItem(order.id, lines as unknown as Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>);
     setSubmitting(false);
     if (ok) {
-      router.push('/admin/sales');
+      router.push('/admin/purchases');
     } else {
       alert('Failed to add items');
     }
@@ -173,8 +173,8 @@ export default function NewSalesPage() {
       <div className="p-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">New Invoice</h1>
-            <p className="text-gray-600">Create a sales invoice</p>
+            <h1 className="text-2xl font-bold text-gray-900">New Purchase</h1>
+            <p className="text-gray-600">Create a purchase order</p>
           </div>
         </div>
 
@@ -188,46 +188,46 @@ export default function NewSalesPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Customer (Party)</label>
-              <select value={partyId} onChange={(e) => {
-                const selectedPartyId = e.target.value;
-                setPartyId(selectedPartyId);
+              <label className="block text-sm text-gray-600 mb-2">Supplier</label>
+              <select value={supplierId} onChange={(e) => {
+                const selectedSupplierId = e.target.value;
+                setSupplierId(selectedSupplierId);
                 
-                // Auto-populate customer details from selected party
-                if (selectedPartyId) {
-                  const selectedParty = parties.find(p => p.id === selectedPartyId);
-                  if (selectedParty) {
-                    setCustomerName(selectedParty.name);
-                    setCustomerPhone(selectedParty.phone || '');
+                // Auto-populate supplier details from selected supplier
+                if (selectedSupplierId) {
+                  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+                  if (selectedSupplier) {
+                    setSupplierName(selectedSupplier.name);
+                    setSupplierPhone(selectedSupplier.phone || '');
                   }
                 } else {
-                  setCustomerName('');
-                  setCustomerPhone('');
+                  setSupplierName('');
+                  setSupplierPhone('');
                 }
               }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <option value="">Select a party</option>
+                <option value="">Select a supplier</option>
                 {(() => {
-                  // Show parties assigned to current branch OR parties without branch assignment
-                  const filteredParties = parties.filter(party => 
-                    (party.branch_id === branchId || party.branch_id === null) && party.is_active
+                  // Show suppliers assigned to current branch OR suppliers without branch assignment
+                  const filteredSuppliers = suppliers.filter(supplier => 
+                    (supplier.branch_id === branchId || supplier.branch_id === null) && supplier.is_active
                   );
-                  return filteredParties.map((pr) => (
-                    <option key={pr.id} value={pr.id}>
-                      {pr.name} {pr.branch_id ? `(${branches.find(b => b.id === pr.branch_id)?.name || 'Unknown Branch'})` : '(No Branch)'}
+                  return filteredSuppliers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.branch_id ? `(${branches.find(b => b.id === s.branch_id)?.name || 'Unknown Branch'})` : '(No Branch)'}
                     </option>
                   ));
                 })()}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Customer Name</label>
-              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+              <label className="block text-sm text-gray-600 mb-2">Supplier Name</label>
+              <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Customer Phone</label>
-              <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)}
+              <label className="block text-sm text-gray-600 mb-2">Supplier Phone</label>
+              <input value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
@@ -258,7 +258,7 @@ export default function NewSalesPage() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (TP)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (PP)</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc Amt</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc %</th>
                     <th className="px-3 py-2"></th>
@@ -354,7 +354,7 @@ export default function NewSalesPage() {
           <div className="flex justify-end">
             <button disabled={!canSubmit || submitting} onClick={handleSubmit}
               className={`px-6 py-2 rounded-lg text-white ${!canSubmit || submitting ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
-              {submitting ? 'Processing...' : 'Make Sale'}
+              {submitting ? 'Processing...' : 'Make Purchase'}
             </button>
           </div>
         </div>
@@ -362,5 +362,3 @@ export default function NewSalesPage() {
     </div>
   );
 }
-
-
