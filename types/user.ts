@@ -558,6 +558,7 @@ export interface PurchaseOrder {
   paid_total: number;
   due_total: number;
   note?: string;
+  image_urls?: string[];
   created_by?: string;
   posted_by?: string;
   created_at: string;
@@ -601,6 +602,7 @@ export interface CreatePurchaseOrderData {
   paid_total?: number;
   due_total?: number;
   note?: string;
+  image_urls?: string[];
 }
 
 export interface UpdatePurchaseOrderData {
@@ -617,6 +619,7 @@ export interface UpdatePurchaseOrderData {
   paid_total?: number;
   due_total?: number;
   note?: string;
+  image_urls?: string[];
 }
 
 // Party (customer) types

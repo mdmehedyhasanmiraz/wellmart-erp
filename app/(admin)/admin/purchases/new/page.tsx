@@ -40,6 +40,8 @@ export default function NewPurchasePage() {
   const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState<boolean>(false);
 
   useEffect(() => {
     const load = async () => {
@@ -131,6 +133,38 @@ export default function NewPurchasePage() {
     await loadBatchStocks(productId);
   };
 
+  const handleImageUpload = async (files: FileList | null) => {
+    if (!files) return;
+    
+    setUploadingImages(true);
+    const uploadPromises = Array.from(files).map(async (file) => {
+      const imageUrl = await PurchaseService.uploadImage(file);
+      return imageUrl;
+    });
+
+    try {
+      const results = await Promise.all(uploadPromises);
+      const validUrls = results.filter(url => url !== null) as string[];
+      setUploadedImages(prev => [...prev, ...validUrls]);
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      alert('Failed to upload some images');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleImageRemove = async (index: number) => {
+    const imageUrl = uploadedImages[index];
+    const success = await PurchaseService.deleteImage(imageUrl);
+    
+    if (success) {
+      setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      alert('Failed to delete image');
+    }
+  };
+
   const canSubmit = useMemo(() => {
     if (!branchId) return false;
     if (lines.length === 0) return false;
@@ -155,6 +189,7 @@ export default function NewPurchasePage() {
       paid_total: paidTotal,
       due_total: totals.due,
       note,
+      image_urls: uploadedImages.length > 0 ? uploadedImages : undefined,
       status: 'posted',
     });
     if (!order) { setSubmitting(false); alert('Failed to create order'); return; }
@@ -349,6 +384,54 @@ export default function NewPurchasePage() {
             <label className="block text-sm text-gray-600 mb-2">Note</label>
             <input value={note} onChange={(e) => setNote(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-600 mb-2">Invoice Images</label>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                  id="image-upload"
+                  disabled={uploadingImages}
+                />
+                <label
+                  htmlFor="image-upload"
+                  className={`px-4 py-2 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:border-purple-500 transition-colors ${
+                    uploadingImages ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {uploadingImages ? 'Uploading...' : 'Choose Images'}
+                </label>
+                <span className="text-sm text-gray-500">
+                  Upload invoice images (JPG, PNG, etc.)
+                </span>
+              </div>
+              
+              {uploadedImages.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {uploadedImages.map((imageUrl, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={imageUrl}
+                        alt={`Invoice ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        onClick={() => handleImageRemove(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex justify-end">

@@ -307,23 +307,51 @@ export class PurchaseService {
     return count || 0;
   }
 
-  static async getOrdersByStatus(status: string): Promise<PurchaseOrder[]> {
-    const { data, error } = await this.supabase
-      .from('purchase_orders')
-      .select(`
-        *,
-        branches:branch_id(name),
-        suppliers:supplier_id(name),
-        employees:employee_id(name)
-      `)
-      .eq('status', status)
-      .order('created_at', { ascending: false });
+  static async uploadImage(file: File): Promise<string | null> {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `purchase-invoices/${fileName}`;
 
-    if (error) {
-      console.error('Error fetching purchase orders by status:', error);
-      throw new Error('Failed to fetch purchase orders');
+      const { data, error } = await this.supabase.storage
+        .from('images')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Error uploading image:', error);
+        return null;
+      }
+
+      const { data: { publicUrl } } = this.supabase.storage
+        .from('images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
     }
-
-    return data || [];
   }
-}
+
+  static async deleteImage(imageUrl: string): Promise<boolean> {
+    try {
+      // Extract file path from URL
+      const urlParts = imageUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const filePath = `purchase-invoices/${fileName}`;
+
+      const { error } = await this.supabase.storage
+        .from('images')
+        .remove([filePath]);
+
+      if (error) {
+        console.error('Error deleting image:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      return false;
+    }
+  }

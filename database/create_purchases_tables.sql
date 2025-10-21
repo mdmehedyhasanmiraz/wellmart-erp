@@ -14,6 +14,7 @@ create table public.purchase_orders (
   paid_total numeric(12, 2) not null default 0,
   due_total numeric(12, 2) not null default 0,
   note text null,
+  image_urls text[] null,
   created_by uuid null,
   posted_by uuid null,
   created_at timestamp with time zone not null default timezone ('utc'::text, now()),
