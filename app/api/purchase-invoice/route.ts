@@ -98,7 +98,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Generate PDF
-    const pdfBytes = await generatePDFInvoice(order, items || [], payments || [], branches[0], suppliers, employees, products);
+    const pdfBytes = await generatePDFInvoice(
+      order, 
+      items || [], 
+      payments || [], 
+      branches[0] || { id: '', name: 'Unknown Branch' }, 
+      suppliers, 
+      employees, 
+      products
+    );
 
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
@@ -116,7 +124,95 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function generatePDFInvoice(order: any, items: any[], payments: any[], branch: any, supplier: any, employee: any, products: any[]) {
+interface PurchaseInvoiceOrder {
+  id: string;
+  branch_id: string;
+  supplier_id?: string;
+  employee_id?: string;
+  supplier_name?: string;
+  supplier_phone?: string;
+  status: string;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  shipping_total: number;
+  grand_total: number;
+  paid_total: number;
+  due_total: number;
+  note?: string;
+  created_at: string;
+}
+
+interface PurchaseInvoiceItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  discount_percent: number;
+  total: number;
+  batch_number?: string;
+}
+
+interface PurchaseInvoicePayment {
+  id: string;
+  order_id: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  paid_at: string;
+  received_by?: string;
+}
+
+interface PurchaseInvoiceBranch {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface PurchaseInvoiceSupplier {
+  id: string;
+  name: string;
+  supplier_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+interface PurchaseInvoiceEmployee {
+  id: string;
+  name: string;
+  employee_code: string;
+}
+
+interface PurchaseInvoiceProduct {
+  id: string;
+  name: string;
+  sku?: string;
+  pp?: number;
+  tp?: number;
+  mrp?: number;
+}
+
+async function generatePDFInvoice(
+  order: PurchaseInvoiceOrder, 
+  items: PurchaseInvoiceItem[], 
+  payments: PurchaseInvoicePayment[], 
+  branch: PurchaseInvoiceBranch, 
+  supplier: PurchaseInvoiceSupplier | null, 
+  employee: PurchaseInvoiceEmployee | null, 
+  products: PurchaseInvoiceProduct[]
+) {
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
   let page = pdfDoc.addPage([595.28, 841.89]); // A4 size

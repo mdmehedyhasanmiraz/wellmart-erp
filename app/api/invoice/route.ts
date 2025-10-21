@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     if (order.branch_id) {
       const { data: branch, error: branchError } = await supabase
         .from('branches')
-        .select('name, address, phone, email')
+        .select('id, name, address, phone, email')
         .eq('id', order.branch_id)
         .single();
       
@@ -72,12 +72,26 @@ export async function GET(request: NextRequest) {
     if (order.party_id) {
       const { data: party, error: partyError } = await supabase
         .from('parties')
-        .select('name, party_code, contact_person, phone, email, shop_no, address_line1, address_line2, city, state, postal_code, country')
+        .select('id, name, party_code, contact_person, phone, email, shop_no, address_line1, address_line2, city, state, postal_code, country')
         .eq('id', order.party_id)
         .single();
       
       if (!partyError) {
         partyData = party;
+      }
+    }
+
+    // Fetch employee details separately
+    let employeeData = null;
+    if (order.employee_id) {
+      const { data: employee, error: employeeError } = await supabase
+        .from('employees')
+        .select('id, name, employee_code')
+        .eq('id', order.employee_id)
+        .single();
+      
+      if (!employeeError) {
+        employeeData = employee;
       }
     }
 
@@ -139,7 +153,14 @@ export async function GET(request: NextRequest) {
 
     // Generate PDF invoice
     console.log('Generating PDF for order:', orderWithDetails.id);
-    const pdfBytes = await generatePDFInvoice(orderWithDetails, itemsWithProducts, payments || []);
+    const pdfBytes = await generatePDFInvoice(
+      orderWithDetails, 
+      itemsWithProducts, 
+      payments || [], 
+      branchData || { id: '', name: 'Unknown Branch' }, 
+      partyData, 
+      employeeData
+    );
 
     console.log('PDF generated successfully, size:', pdfBytes.length);
 
@@ -160,7 +181,90 @@ export async function GET(request: NextRequest) {
   }
 }
 
-async function generatePDFInvoice(order: any, items: any[], payments: any[]) {
+interface InvoiceOrder {
+  id: string;
+  branch_id: string;
+  party_id?: string;
+  employee_id?: string;
+  customer_name?: string;
+  customer_phone?: string;
+  status: string;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  shipping_total: number;
+  grand_total: number;
+  paid_total: number;
+  due_total: number;
+  note?: string;
+  created_at: string;
+  branches?: InvoiceBranch | null;
+  parties?: InvoiceParty | null;
+}
+
+interface InvoiceItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  discount_amount: number;
+  discount_percent: number;
+  total: number;
+  batch_number?: string;
+  products?: {
+    name: string;
+  };
+}
+
+interface InvoicePayment {
+  id: string;
+  order_id: string;
+  amount: number;
+  method: string;
+  reference?: string;
+  paid_at: string;
+  received_by?: string;
+}
+
+interface InvoiceBranch {
+  id: string;
+  name: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+}
+
+interface InvoiceParty {
+  id: string;
+  name: string;
+  party_code?: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  shop_no?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
+}
+
+interface InvoiceEmployee {
+  id: string;
+  name: string;
+  employee_code: string;
+}
+
+async function generatePDFInvoice(
+  order: InvoiceOrder, 
+  items: InvoiceItem[], 
+  payments: InvoicePayment[], 
+  branch: InvoiceBranch, 
+  party: InvoiceParty | null, 
+  employee: InvoiceEmployee | null
+) {
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
   let page = pdfDoc.addPage([595.28, 841.89]); // A4 size
