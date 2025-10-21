@@ -141,7 +141,7 @@ export default function NewPurchasePage() {
   }, [branchId, lines]);
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !branchId) return;
     setSubmitting(true);
     const order: PurchaseOrder | null = await PurchaseService.createOrder({
       branch_id: branchId,
@@ -156,7 +156,7 @@ export default function NewPurchasePage() {
       due_total: totals.due,
       note,
       status: 'posted',
-    } as Partial<PurchaseOrder>);
+    });
     if (!order) { setSubmitting(false); alert('Failed to create order'); return; }
     const ok = await PurchaseService.addOrderItem(order.id, lines as unknown as Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>);
     setSubmitting(false);
