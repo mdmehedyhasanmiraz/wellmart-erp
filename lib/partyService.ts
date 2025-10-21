@@ -9,6 +9,7 @@ interface CreatePartyData extends Partial<Party> {
 }
 
 export class PartyService {
+  // Party service methods for CRUD operations
   static async list(): Promise<Party[]> {
     const { data, error } = await supabase.from('parties').select('*').eq('is_active', true).order('name', { ascending: true });
     if (error) {
