@@ -355,3 +355,4 @@ export class PurchaseService {
       return false;
     }
   }
+}
