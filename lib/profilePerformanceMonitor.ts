@@ -60,11 +60,11 @@ export class ProfilePerformanceMonitor {
 
 // Performance monitoring decorator for class methods
 export function measurePerformance(operationName?: string) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (target: object, propertyName: string, descriptor: PropertyDescriptor) {
     const method = descriptor.value;
-    const operation = operationName || `${target.constructor.name}.${propertyName}`;
+    const operation = operationName || `${(target as { constructor: { name: string } }).constructor.name}.${propertyName}`;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (...args: unknown[]) {
       return ProfilePerformanceMonitor.measureAsync(operation, () => method.apply(this, args));
     };
 

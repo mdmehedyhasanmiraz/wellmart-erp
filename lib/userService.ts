@@ -56,7 +56,7 @@ export class UserService {
           email: data.email,
           role: data.role,
           branch_id: data.branch_id,
-          branch_name: (data.branches as any)?.name || undefined,
+          branch_name: (data.branches as { name: string }[] | null)?.[0]?.name || undefined,
           is_active: data.is_active,
           created_at: data.created_at,
           updated_at: data.updated_at,
