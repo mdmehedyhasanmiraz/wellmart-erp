@@ -15,42 +15,65 @@ export class UserService {
       }
 
       // Only fetch from database if absolutely no cache exists
-      console.log('⚠️ No cache found, fetching from database (slow operation)');
+      console.log('⚠️ No cache found, fetching from database (optimized for speed)');
       
       try {
-        // Single optimized query with join to get user and branch data in one request
-        const { data, error } = await supabase
-          .from('users')
-          .select(`
-            id, 
-            name, 
-            email, 
-            role, 
-            branch_id, 
-            is_active, 
-            created_at, 
-            updated_at,
-            branches:branch_id (
-              id,
-              name,
-              code
-            )
-          `)
-          .eq('id', userId)
-          .eq('is_active', true)
-          .single();
-
-        if (error) {
-          console.error('Error fetching user profile:', error);
-          return null;
+        const profile = await this.fastDatabaseFetch(userId);
+        
+        if (profile) {
+          // Cache the profile for 24 hours (performance priority)
+          userProfileCache.set(userId, profile);
+          console.log('✅ User profile fetched and cached successfully');
+          return profile;
         }
+        
+        return null;
+      } catch (error) {
+        console.error('Error in getUserProfile:', error);
+        return null;
+      }
+    });
+  }
 
-        if (!data) {
-          console.log('No user found with ID:', userId);
-          return null;
-        }
+  // ULTRA-FAST database fetch with fallback (for cache misses)
+  private static async fastDatabaseFetch(userId: string): Promise<UserProfile | null> {
+    try {
+      // Method 1: Try optimized join query first (with timeout)
+      const startTime = performance.now();
+      
+      const queryPromise = supabase
+        .from('users')
+        .select(`
+          id, 
+          name, 
+          email, 
+          role, 
+          branch_id, 
+          is_active, 
+          created_at, 
+          updated_at,
+          branches!inner (
+            id,
+            name,
+            code
+          )
+        `)
+        .eq('id', userId)
+        .eq('is_active', true)
+        .single();
 
-        // Build profile with branch information
+      // Add timeout to prevent hanging
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 2000)
+      );
+
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+
+      const queryTime = performance.now() - startTime;
+      
+      if (!error && data) {
+        console.log(`⚡ Join query completed in ${queryTime.toFixed(2)}ms`);
+        
         const profile: UserProfile = {
           id: data.id,
           name: data.name,
@@ -65,15 +88,105 @@ export class UserService {
           dashboard_route: DASHBOARD_ROUTES[data.role as UserRole]
         };
 
-        // Cache the profile for 24 hours (performance priority)
-        userProfileCache.set(userId, profile);
-        console.log('✅ User profile fetched from database and cached for 24 hours');
-        
         return profile;
-      } catch (error) {
-        console.error('Error in getUserProfile:', error);
+      }
+
+      // Method 2: Fallback to simple user query (faster, no joins)
+      console.log('🔄 Join query failed, trying ultra-fast simple query...');
+      const fallbackStartTime = performance.now();
+      
+      const simpleQueryPromise = supabase
+        .from('users')
+        .select('id, name, email, role, branch_id, is_active, created_at, updated_at')
+        .eq('id', userId)
+        .eq('is_active', true)
+        .single();
+
+      const simpleTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Simple query timeout')), 1000)
+      );
+
+      const { data: userData, error: userError } = await Promise.race([simpleQueryPromise, simpleTimeoutPromise]) as any;
+
+      const fallbackTime = performance.now() - fallbackStartTime;
+      
+      if (userError || !userData) {
+        console.error('Both queries failed:', userError);
         return null;
       }
+
+      console.log(`⚡ Ultra-fast fallback query completed in ${fallbackTime.toFixed(2)}ms`);
+
+      // Build profile without branch info (faster)
+      const profile: UserProfile = {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        branch_id: userData.branch_id,
+        branch_name: undefined, // Will be populated later if needed
+        is_active: userData.is_active,
+        created_at: userData.created_at,
+        updated_at: userData.updated_at,
+        permissions: UserService.getUserPermissions(userData.role),
+        dashboard_route: DASHBOARD_ROUTES[userData.role as UserRole]
+      };
+
+      return profile;
+      
+    } catch (error) {
+      console.error('Fast database fetch error:', error);
+      return null;
+    }
+  }
+
+  // Batch preload multiple user profiles for ultra-fast performance
+  static async batchPreloadProfiles(userIds: string[]): Promise<UserProfile[]> {
+    return ProfilePerformanceMonitor.measureAsync('batchPreloadProfiles', async () => {
+      console.log(`🔄 Batch preloading ${userIds.length} user profiles...`);
+      
+      const profiles: UserProfile[] = [];
+      const uncachedIds: string[] = [];
+      
+      // Check cache first for all users
+      for (const userId of userIds) {
+        const cached = userProfileCache.getFromCacheOnly(userId);
+        if (cached) {
+          profiles.push(cached);
+        } else {
+          uncachedIds.push(userId);
+        }
+      }
+      
+      if (uncachedIds.length === 0) {
+        console.log('🚀 All profiles found in cache');
+        return profiles;
+      }
+      
+      console.log(`⚡ Fetching ${uncachedIds.length} profiles from database...`);
+      
+      // Batch fetch uncached profiles
+      const batchPromises = uncachedIds.map(async (userId) => {
+        try {
+          const profile = await this.fastDatabaseFetch(userId);
+          if (profile) {
+            userProfileCache.set(userId, profile);
+            return profile;
+          }
+          return null;
+        } catch (error) {
+          console.error(`Error preloading profile for ${userId}:`, error);
+          return null;
+        }
+      });
+      
+      const batchResults = await Promise.all(batchPromises);
+      const validProfiles = batchResults.filter((profile): profile is UserProfile => profile !== null);
+      
+      profiles.push(...validProfiles);
+      
+      console.log(`✅ Batch preload completed: ${profiles.length}/${userIds.length} profiles loaded`);
+      return profiles;
     });
   }
 
