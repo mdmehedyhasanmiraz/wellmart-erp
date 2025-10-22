@@ -76,7 +76,7 @@ export default function EditPurchasePage() {
     
     setUploadingImages(true);
     const uploadPromises = Array.from(files).map(async (file) => {
-      const imageUrl = await PurchaseService.uploadImage(file);
+      const imageUrl = await PurchaseService.uploadFile(file);
       return imageUrl;
     });
 
@@ -94,7 +94,7 @@ export default function EditPurchasePage() {
 
   const handleImageRemove = async (index: number) => {
     const imageUrl = uploadedImages[index];
-    const success = await PurchaseService.deleteImage(imageUrl);
+    const success = await PurchaseService.deleteFile(imageUrl);
     
     if (success) {
       setUploadedImages(prev => prev.filter((_, i) => i !== index));
