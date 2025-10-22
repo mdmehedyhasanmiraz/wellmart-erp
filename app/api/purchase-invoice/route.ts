@@ -14,10 +14,15 @@ export async function GET(request: NextRequest) {
     // Create Supabase client with service role key to bypass RLS
     const supabaseClient = supabase;
 
-    // Fetch purchase order details
+    // Fetch purchase order details with branch join (same as PurchaseService)
     const { data: orders, error: orderError } = await supabaseClient
       .from('purchase_orders')
-      .select('*')
+      .select(`
+        *,
+        branches:branch_id(id, name, address, phone, email, is_active),
+        suppliers:supplier_id(id, name, supplier_code, contact_person, phone, email),
+        employees:employee_id(id, name, employee_code)
+      `)
       .eq('id', orderId);
 
     if (orderError || !orders || orders.length === 0) {
@@ -25,51 +30,35 @@ export async function GET(request: NextRequest) {
     }
 
     const order = orders[0];
+    console.log('Purchase order data:', { 
+      id: order.id, 
+      branch_id: order.branch_id, 
+      branches: order.branches,
+      branch_id_type: typeof order.branch_id,
+      branch_id_length: order.branch_id?.length 
+    });
 
-    // Fetch branch details with fallback mechanism
+    // Extract branch data from joined query (same as PurchaseService approach)
     let branchData = null;
-    if (order.branch_id) {
-      console.log('Fetching branch for purchase order, branch_id:', order.branch_id);
-      
-      // First try to get active branch
-      let { data: branch, error: branchError } = await supabaseClient
-        .from('branches')
-        .select('id, name, address, phone, email')
-        .eq('id', order.branch_id)
-        .eq('is_active', true)
-        .single();
-      
-      // If not found or inactive, try without is_active filter
-      if (branchError) {
-        console.log('Active branch not found, trying without is_active filter');
-        const { data: inactiveBranch, error: inactiveError } = await supabaseClient
-          .from('branches')
-          .select('id, name, address, phone, email')
-          .eq('id', order.branch_id)
-          .single();
-        
-        if (!inactiveError && inactiveBranch) {
-          branch = inactiveBranch;
-          branchError = null;
-          console.log('Found inactive branch:', inactiveBranch);
-        }
-      }
-      
-      console.log('Branch fetch result:', { branch, branchError });
-      
-      if (branchError || !branch) {
-        console.error('Branch fetch error:', branchError);
-        // Don't fail the entire invoice if branch is not found
-        branchData = { 
-          id: order.branch_id, 
-          name: 'Branch Not Found', 
-          address: 'Address not available', 
-          phone: null, 
-          email: null 
-        };
-      } else {
-        branchData = branch;
-      }
+    if (order.branches) {
+      console.log('Branch data from join:', order.branches);
+      branchData = {
+        id: order.branches.id,
+        name: order.branches.name,
+        address: order.branches.address,
+        phone: order.branches.phone,
+        email: order.branches.email
+      };
+    } else if (order.branch_id) {
+      console.log('No branch data from join, branch_id exists:', order.branch_id);
+      // Fallback: branch exists but join failed
+      branchData = { 
+        id: order.branch_id, 
+        name: 'Branch Data Unavailable', 
+        address: 'Address not available', 
+        phone: null, 
+        email: null 
+      };
     } else {
       console.log('No branch_id found in purchase order');
       branchData = { 
@@ -81,30 +70,37 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // Fetch supplier details
+    // Extract supplier data from joined query
     let suppliers = null;
-    if (order.supplier_id) {
-      const { data: supplierData, error: supplierError } = await supabaseClient
-        .from('suppliers')
-        .select('*')
-        .eq('id', order.supplier_id);
-      
-      if (!supplierError && supplierData && supplierData.length > 0) {
-        suppliers = supplierData[0];
-      }
+    if (order.suppliers) {
+      console.log('Supplier data from join:', order.suppliers);
+      suppliers = order.suppliers;
+    } else if (order.supplier_id) {
+      console.log('No supplier data from join, supplier_id exists:', order.supplier_id);
+      // Fallback: supplier exists but join failed
+      suppliers = {
+        id: order.supplier_id,
+        name: 'Supplier Data Unavailable',
+        supplier_code: null,
+        contact_person: null,
+        phone: null,
+        email: null
+      };
     }
 
-    // Fetch employee details
+    // Extract employee data from joined query
     let employees = null;
-    if (order.employee_id) {
-      const { data: employeeData, error: employeeError } = await supabaseClient
-        .from('employees')
-        .select('*')
-        .eq('id', order.employee_id);
-      
-      if (!employeeError && employeeData && employeeData.length > 0) {
-        employees = employeeData[0];
-      }
+    if (order.employees) {
+      console.log('Employee data from join:', order.employees);
+      employees = order.employees;
+    } else if (order.employee_id) {
+      console.log('No employee data from join, employee_id exists:', order.employee_id);
+      // Fallback: employee exists but join failed
+      employees = {
+        id: order.employee_id,
+        name: 'Employee Data Unavailable',
+        employee_code: 'N/A'
+      };
     }
 
     // Fetch purchase order items
