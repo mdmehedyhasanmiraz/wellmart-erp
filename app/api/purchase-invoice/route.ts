@@ -448,7 +448,7 @@ async function generatePDFInvoice(
   yPos -= 20;
   const tableStartY = yPos;
   const tableWidth = width - 100;
-  const colWidths = [150, 80, 40, 80, 80, 30, 120]; // Product, Batch, Qty, Unit Price, Discount, Total
+  const colWidths = [150, 80, 40, 80, 80, 30, 120]; // Product, Batch, Qty, Unit PP, Discount, Total
 
   // Draw table header background
   page.drawRectangle({
@@ -460,7 +460,7 @@ async function generatePDFInvoice(
   });
 
   // Table headers
-  const headers = ['Product', 'Batch', 'Qty', 'Unit Price', 'Discount', 'Total'];
+  const headers = ['Product', 'Batch', 'Qty', 'Unit PP', 'Discount', 'Total'];
   let xPos = 50;
   headers.forEach((header, index) => {
     page.drawText(header, {

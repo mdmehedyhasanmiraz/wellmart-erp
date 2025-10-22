@@ -151,16 +151,29 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Generate PDF invoice
-    console.log('Generating PDF for order:', orderWithDetails.id);
-    const pdfBytes = await generatePDFInvoice(
-      orderWithDetails, 
-      itemsWithProducts, 
-      payments || [], 
-      branchData || { id: '', name: 'Unknown Branch' }, 
-      partyData, 
-      employeeData
-    );
+  // Calculate payment status based on paid amount and due amount
+  const calculatePaymentStatus = (paidTotal: number, dueTotal: number, grandTotal: number): string => {
+    if (dueTotal <= 0) {
+      return 'PAID';
+    } else if (paidTotal > 0) {
+      return 'PARTLY PAID';
+    } else {
+      return 'UNPAID';
+    }
+  };
+
+  // Generate PDF invoice
+  console.log('Generating PDF for order:', orderWithDetails.id);
+  const paymentStatus = calculatePaymentStatus(order.paid_total, order.due_total, order.grand_total);
+  const pdfBytes = await generatePDFInvoice(
+    orderWithDetails, 
+    itemsWithProducts, 
+    payments || [], 
+    branchData || { id: '', name: 'Unknown Branch' }, 
+    partyData, 
+    employeeData,
+    paymentStatus
+  );
 
     console.log('PDF generated successfully, size:', pdfBytes.length);
 
@@ -262,7 +275,8 @@ async function generatePDFInvoice(
   payments: InvoicePayment[], 
   branch: InvoiceBranch, 
   party: InvoiceParty | null, 
-  employee: InvoiceEmployee | null
+  employee: InvoiceEmployee | null,
+  paymentStatus: string
 ) {
   // Create a new PDF document
   const pdfDoc = await PDFDocument.create();
@@ -278,6 +292,20 @@ async function generatePDFInvoice(
   const textColor = rgb(0.2, 0.2, 0.2);
   const lightGray = rgb(0.9, 0.9, 0.9);
   const accentColor = rgb(0.1, 0.1, 0.1);
+  
+  // Payment status colors
+  const getPaymentStatusColor = (status: string) => {
+    switch (status) {
+      case 'PAID':
+        return rgb(0.0, 0.6, 0.0); // Green
+      case 'PARTLY PAID':
+        return rgb(0.8, 0.4, 0.0); // Orange
+      case 'UNPAID':
+        return rgb(0.8, 0.0, 0.0); // Red
+      default:
+        return textColor;
+    }
+  };
 
   // Helper function to check if we need a new page
   const checkPageSpace = (requiredSpace: number) => {
@@ -328,7 +356,7 @@ async function generatePDFInvoice(
   const invoiceDetails = [
     { label: 'Invoice #:', value: invoiceNumber },
     { label: 'Date:', value: invoiceDate },
-    { label: 'Status:', value: order.status.toUpperCase() },
+    { label: 'Payment Status:', value: paymentStatus },
     { label: 'MPO Code:', value: employee?.employee_code || 'N/A' },
   ];
 
@@ -340,12 +368,16 @@ async function generatePDFInvoice(
       font: font,
       color: textColor,
     });
+    
+    // Use special color for payment status
+    const valueColor = detail.label === 'Payment Status:' ? getPaymentStatusColor(detail.value) : textColor;
+    
     page.drawText(detail.value, {
       x: leftColumnX + 80,
       y: leftYPos,
       size: 10,
       font: boldFont,
-      color: textColor,
+      color: valueColor,
     });
     leftYPos -= 15;
   });
@@ -861,6 +893,24 @@ async function generatePDFInvoice(
     size: 9,
     font: boldFont,
     color: textColor,
+  });
+
+  // Payment Status Indicator
+  yPos -= 20;
+  page.drawText('Payment Status:', {
+    x: width - 240,
+    y: yPos,
+    size: 10,
+    font: boldFont,
+    color: textColor,
+  });
+
+  page.drawText(paymentStatus, {
+    x: width - 130,
+    y: yPos,
+    size: 10,
+    font: boldFont,
+    color: getPaymentStatusColor(paymentStatus),
   });
 
   // Payment History Section

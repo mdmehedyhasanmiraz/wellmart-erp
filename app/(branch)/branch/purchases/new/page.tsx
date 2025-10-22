@@ -311,16 +311,14 @@ export default function BranchNewPurchasePage() {
                         </select>
                       </td>
                       <td className="px-3 py-2">
-                        <select value={l.batch_number || ''} onChange={(e) => setLine(idx, { batch_number: e.target.value })}
+                        <input 
+                          type="text" 
+                          value={l.batch_number || ''} 
+                          onChange={(e) => setLine(idx, { batch_number: e.target.value })}
+                          placeholder="Enter batch number"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                          disabled={!l.product_id}>
-                          <option value="">Select batch</option>
-                          {batchStocks[l.product_id]?.map((stock) => (
-                            <option key={stock.batch_id} value={stock.product_batches?.batch_number || ''}>
-                              {stock.product_batches?.batch_number} ({stock.quantity} units)
-                            </option>
-                          ))}
-                        </select>
+                          disabled={!l.product_id}
+                        />
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" min={1} value={l.quantity} onChange={(e) => setLine(idx, { quantity: Number(e.target.value) })}
