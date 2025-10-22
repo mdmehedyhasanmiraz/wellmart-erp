@@ -79,12 +79,31 @@ export default function BranchEditProductPage() {
   const [branchStocks, setBranchStocks] = useState<Array<{ branch_id: string; stock: number; branches?: { id: string; name: string; code: string } }>>([]);
   const [totalStock, setTotalStock] = useState<number>(0);
   const [stockView, setStockView] = useState<'batch' | 'branch'>('batch');
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchId, setSelectedBranchId] = useState<string>('');
 
   useEffect(() => {
     if (productId && userProfile?.branch_id) {
       fetchProduct();
     }
   }, [productId, userProfile?.branch_id]);
+
+  useEffect(() => {
+    // Fetch branches for dropdown
+    const fetchBranches = async () => {
+      try {
+        const branchesData = await BranchService.getAll();
+        setBranches(branchesData);
+        // Set user's branch as default if none selected
+        if (userProfile?.branch_id && !selectedBranchId) {
+          setSelectedBranchId(userProfile.branch_id);
+        }
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+      }
+    };
+    fetchBranches();
+  }, [userProfile?.branch_id, selectedBranchId]);
 
   useEffect(() => {
     if (!productId) return;
@@ -203,9 +222,12 @@ export default function BranchEditProductPage() {
 
     try {
       await ProductService.updateProduct(productId, formData);
-      // update existing batches via InventoryService
+      
+      // Handle batch operations with branch integration
       const existing = batches.filter(b => b.id);
       const created = batches.filter(b => !b.id);
+      
+      // Update existing batches
       await Promise.all(
         existing.map(b =>
           InventoryService.updateBatch(b.id as string, {
@@ -220,9 +242,11 @@ export default function BranchEditProductPage() {
           })
         )
       );
+      
+      // Create new batches and link to selected branch
       await Promise.all(
-        created.map(b =>
-          InventoryService.createBatch({
+        created.map(async (b) => {
+          const newBatch = await InventoryService.createBatch({
             product_id: productId,
             batch_number: b.batch_number,
             expiry_date: b.expiry_date,
@@ -230,9 +254,20 @@ export default function BranchEditProductPage() {
             supplier_batch_number: b.supplier_batch_number,
             cost_price: b.cost_price,
             quantity_received: b.quantity_received || 0,
-          })
-        )
+          });
+          
+          // Create branch-batch stock entry
+          if (newBatch && selectedBranchId) {
+            await InventoryService.updateBatchStock(
+              productId,
+              selectedBranchId,
+              newBatch.id,
+              b.quantity_received || 0
+            );
+          }
+        })
       );
+      
       router.push('/branch/products');
     } catch (error) {
       console.error('Error updating product:', error);
@@ -423,6 +458,35 @@ export default function BranchEditProductPage() {
             </div>
           </div>
 
+          {/* Branch Selection for New Batches */}
+          {stockView === 'batch' && (
+            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-emerald-700 mb-2">
+                    Assign New Batches to Branch
+                  </label>
+                  <select
+                    value={selectedBranchId}
+                    onChange={(e) => setSelectedBranchId(e.target.value)}
+                    className="w-full px-3 py-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                  >
+                    <option value="">Select a branch</option>
+                    {branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name} ({branch.code})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="text-sm text-emerald-600">
+                  <p>New batches will be assigned to the selected branch</p>
+                  <p>and saved to the product_branch_batch_stocks table</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {stockView === 'branch' ? (
             <div className="mt-2 overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -534,6 +598,10 @@ export default function BranchEditProductPage() {
                   <button
                     type="button"
                     onClick={async () => {
+                      if (!selectedBranchId) {
+                        alert('Please select a branch before adding a new batch');
+                        return;
+                      }
                       const batch_number = await InventoryService.generateBatchNumber(productId);
                       setBatches(prev => [...prev, { batch_number, quantity_received: 0, quantity_remaining: 0 }]);
                     }}
@@ -541,6 +609,11 @@ export default function BranchEditProductPage() {
                   >
                     Add Batch
                   </button>
+                  {!selectedBranchId && (
+                    <p className="mt-2 text-sm text-red-600">
+                      ⚠️ Please select a branch before adding new batches
+                    </p>
+                  )}
                 </div>
               </div>
             </>

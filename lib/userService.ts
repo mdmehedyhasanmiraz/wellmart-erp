@@ -1,124 +1,79 @@
 import { supabase } from './supabase';
 import { User, UserRole, Branch, CreateUserData, UpdateUserData, DASHBOARD_ROUTES, UserProfile } from '@/types/user';
 import { userProfileCache } from './userProfileCache';
+import { ProfilePerformanceMonitor } from './profilePerformanceMonitor';
 
 export class UserService {
-  // Get user profile with role information
+  // Get user profile with role information - OPTIMIZED VERSION
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
-    // Check cache first
-    const cachedProfile = userProfileCache.get(userId);
-    if (cachedProfile) {
-      console.log('User profile loaded from cache');
-      return cachedProfile;
-    }
+    return ProfilePerformanceMonitor.measureAsync('getUserProfile', async () => {
+      // Check cache first
+      const cachedProfile = userProfileCache.get(userId);
+      if (cachedProfile) {
+        console.log('User profile loaded from cache');
+        return cachedProfile;
+      }
 
-    const maxRetries = 3; // Increased retries
-    const retryDelay = 1000; // Increased delay
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Fetching user profile (attempt ${attempt}/${maxRetries})`);
+        console.log('Fetching user profile from database');
         
-        // Create timeout promise with longer timeout
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Database query timeout')), 15000); // Increased to 15 seconds
-        });
-
-        // Try simple query first (without joins) - this should be fast
-        const simpleQueryPromise = supabase
+        // Single optimized query with join to get user and branch data in one request
+        const { data, error } = await supabase
           .from('users')
-          .select('id, name, email, role, branch_id, is_active, created_at, updated_at') // Only select needed fields
+          .select(`
+            id, 
+            name, 
+            email, 
+            role, 
+            branch_id, 
+            is_active, 
+            created_at, 
+            updated_at,
+            branches:branch_id (
+              id,
+              name,
+              code
+            )
+          `)
           .eq('id', userId)
           .eq('is_active', true)
           .single();
 
-        const { data, error } = await Promise.race([simpleQueryPromise, timeoutPromise]) as {
-          data: Pick<User, 'id' | 'name' | 'email' | 'role' | 'branch_id' | 'is_active' | 'created_at' | 'updated_at'> | null,
-          error: { message?: string } | null
-        };
-
         if (error) {
-          console.error(`Error fetching user profile (attempt ${attempt}/${maxRetries}):`, error);
-          
-          if (attempt === maxRetries) {
-            console.error('Failed to fetch user profile after all retries');
-            // DON'T create fallback profile - return null to prevent wrong role assignment
-            return null;
-          }
-          
-          // Wait before retry
-          await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
-          continue;
-        }
-
-        if (data) {
-          console.log('User profile fetched successfully');
-          
-          // If we have branch_id, try to get branch name separately (with timeout)
-          if (data.branch_id) {
-            try {
-              const branchTimeoutPromise = new Promise<never>((_, reject) => {
-                setTimeout(() => reject(new Error('Branch query timeout')), 5000); // 5 second timeout for branch
-              });
-
-              const branchQueryPromise = supabase
-                .from('branches')
-                .select('name')
-                .eq('id', data.branch_id)
-                .single();
-              
-              const { data: branchData } = await Promise.race([branchQueryPromise, branchTimeoutPromise]) as { data: { name: string } | null };
-              
-              const profile: UserProfile = {
-                ...data,
-                branch_name: branchData?.name,
-                permissions: UserService.getUserPermissions(data.role),
-                dashboard_route: DASHBOARD_ROUTES[data.role]
-              };
-              
-              // Cache the profile
-              userProfileCache.set(userId, profile);
-              return profile;
-            } catch (branchError) {
-              console.warn('Could not fetch branch name:', branchError);
-              const profile: UserProfile = {
-                ...data,
-                branch_name: undefined,
-                permissions: UserService.getUserPermissions(data.role),
-                dashboard_route: DASHBOARD_ROUTES[data.role]
-              };
-              userProfileCache.set(userId, profile);
-              return profile;
-            }
-          }
-          
-          // Cache the profile
-          const profile: UserProfile = {
-            ...data,
-            branch_name: undefined,
-            permissions: UserService.getUserPermissions(data.role),
-            dashboard_route: DASHBOARD_ROUTES[data.role]
-          };
-          userProfileCache.set(userId, profile);
-          return profile;
-        }
-
-        throw new Error('No user data returned');
-      } catch (error) {
-        console.error(`Error in getUserProfile (attempt ${attempt}/${maxRetries}):`, error);
-        
-        if (attempt === maxRetries) {
-          console.error('Failed to fetch user profile after all retries');
-          // DON'T create fallback profile - return null to prevent wrong role assignment
+          console.error('Error fetching user profile:', error);
           return null;
         }
+
+        if (!data) {
+          console.log('No user found with ID:', userId);
+          return null;
+        }
+
+        // Build profile with branch information
+        const profile: UserProfile = {
+          id: data.id,
+          name: data.name,
+          email: data.email,
+          role: data.role,
+          branch_id: data.branch_id,
+          branch_name: (data.branches as any)?.name || undefined,
+          is_active: data.is_active,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          permissions: UserService.getUserPermissions(data.role),
+          dashboard_route: DASHBOARD_ROUTES[data.role as UserRole]
+        };
+
+        // Cache the profile for 5 minutes
+        userProfileCache.set(userId, profile);
+        console.log('User profile fetched and cached successfully');
         
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, retryDelay * attempt));
+        return profile;
+      } catch (error) {
+        console.error('Error in getUserProfile:', error);
+        return null;
       }
-    }
-    
-    return null;
+    });
   }
 
   // Check if user has specific role

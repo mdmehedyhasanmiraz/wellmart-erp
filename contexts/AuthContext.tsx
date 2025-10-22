@@ -27,73 +27,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(false);
 
-  const fetchUserProfile = async (userId: string, retries = 3): Promise<void> => {
+  const fetchUserProfile = async (userId: string): Promise<void> => {
     // Check if we already have a profile for this user
     if (userProfile && userProfile.id === userId) {
       console.log('User profile already loaded, skipping fetch');
       return;
     }
 
+    // Check cache first
+    const cachedProfile = userProfileCache.get(userId);
+    if (cachedProfile) {
+      console.log('User profile loaded from cache');
+      setUserProfile(cachedProfile);
+      return;
+    }
+
     setProfileLoading(true);
     
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        console.log(`Fetching user profile (attempt ${attempt}/${retries})`);
-        
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout')), 10000)
-        );
-        
-        const profilePromise = UserService.getUserProfile(userId);
-        const profile = await Promise.race([profilePromise, timeoutPromise]) as User | null;
-        
-        if (profile) {
-          const permissions = UserService.getUserPermissions(profile.role);
-          const dashboardRoute = DASHBOARD_ROUTES[profile.role];
-
-          setUserProfile({
-            ...profile,
-            permissions,
-            dashboard_route: dashboardRoute
-          });
-          console.log('User profile fetched successfully');
-          setProfileLoading(false);
-          return; // Success, exit retry loop
-        } else {
-          console.error('getUserProfile returned null - database may be unavailable');
-          // Don't create fallback profile, just set loading to false
-          // This will prevent redirects and allow the user to stay on current page
-          setProfileLoading(false);
-          return;
-        }
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        console.error(`Error fetching user profile (attempt ${attempt}/${retries}):`, errorMessage);
-        
-        // If it's a timeout error and we have more retries, continue
-        if (errorMessage === 'Request timeout' && attempt < retries) {
-          console.log(`Timeout on attempt ${attempt}, retrying...`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          continue;
-        }
-        
-        if (attempt === retries) {
-          console.error('Failed to fetch user profile after all retries');
-          
-          // DON'T create fallback user profile - this causes wrong role assignment
-          // Instead, just set loading to false and let the user stay on current page
-          console.log('Database unavailable - keeping user on current page without profile');
-          setProfileLoading(false);
-          return; // Exit the retry loop
-        } else {
-          // Wait before retry for non-timeout errors
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        }
+    try {
+      console.log('Fetching user profile from database');
+      const profile = await UserService.getUserProfile(userId);
+      
+      if (profile) {
+        setUserProfile(profile);
+        console.log('User profile fetched successfully');
+      } else {
+        console.log('No user profile found');
+        setUserProfile(null);
       }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      setUserProfile(null);
+    } finally {
+      setProfileLoading(false);
     }
-    
-    setProfileLoading(false);
   };
 
   useEffect(() => {
@@ -141,17 +108,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting sign in process');
       
-      // Add timeout to sign in
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Sign in timeout')), 15000)
-      );
-      
-      const signInPromise = supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
-      const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('Sign in error:', error);
@@ -168,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: 'No user data returned' };
     } catch (error) {
       console.error('Sign in error:', error);
-      return { success: false, error: error instanceof Error ? error.message : 'Network error or timeout occurred' };
+      return { success: false, error: error instanceof Error ? error.message : 'Network error occurred' };
     }
   };
 

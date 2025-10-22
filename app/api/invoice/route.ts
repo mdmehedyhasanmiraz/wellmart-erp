@@ -51,20 +51,68 @@ export async function GET(request: NextRequest) {
     // Get the first (and should be only) order
     const order = orders[0];
 
-    console.log('Order found:', { orderId: order.id, status: order.status, customer: order.customer_name });
+    console.log('Order found:', { 
+      orderId: order.id, 
+      status: order.status, 
+      customer: order.customer_name,
+      branch_id: order.branch_id,
+      party_id: order.party_id,
+      employee_id: order.employee_id
+    });
 
-    // Fetch branch details separately
+    // Fetch branch details separately with fallback
     let branchData = null;
     if (order.branch_id) {
-      const { data: branch, error: branchError } = await supabase
+      console.log('Fetching branch for ID:', order.branch_id);
+      
+      // First try to get active branch
+      let { data: branch, error: branchError } = await supabase
         .from('branches')
         .select('id, name, address, phone, email')
         .eq('id', order.branch_id)
+        .eq('is_active', true)
         .single();
       
-      if (!branchError) {
+      // If not found or inactive, try without is_active filter
+      if (branchError) {
+        console.log('Active branch not found, trying without is_active filter');
+        const { data: inactiveBranch, error: inactiveError } = await supabase
+          .from('branches')
+          .select('id, name, address, phone, email')
+          .eq('id', order.branch_id)
+          .single();
+        
+        if (!inactiveError && inactiveBranch) {
+          branch = inactiveBranch;
+          branchError = null;
+          console.log('Found inactive branch:', inactiveBranch);
+        }
+      }
+      
+      console.log('Branch fetch result:', { branch, branchError });
+      
+      if (branchError || !branch) {
+        console.error('Branch fetch error:', branchError);
+        // Don't fail the entire invoice if branch is not found
+        branchData = { 
+          id: order.branch_id, 
+          name: 'Branch Not Found', 
+          address: 'Address not available', 
+          phone: null, 
+          email: null 
+        };
+      } else {
         branchData = branch;
       }
+    } else {
+      console.log('No branch_id found in order');
+      branchData = { 
+        id: '', 
+        name: 'No Branch Assigned', 
+        address: 'No address available', 
+        phone: null, 
+        email: null 
+      };
     }
 
     // Fetch party details separately
@@ -164,17 +212,20 @@ export async function GET(request: NextRequest) {
 
   // Generate PDF invoice
   console.log('Generating PDF for order:', orderWithDetails.id);
+  console.log('Branch data for PDF:', branchData);
   const paymentStatus = calculatePaymentStatus(order.paid_total, order.due_total, order.grand_total);
-  const pdfBytes = await generatePDFInvoice(
-    orderWithDetails, 
-    itemsWithProducts, 
-    payments || [], 
-    branchData || { id: '', name: 'Unknown Branch' }, 
-    partyData, 
-    employeeData,
-    paymentStatus
-  );
-
+  
+  try {
+    const pdfBytes = await generatePDFInvoice(
+      orderWithDetails, 
+      itemsWithProducts, 
+      payments || [], 
+      branchData || { id: '', name: 'Unknown Branch' }, 
+      partyData, 
+      employeeData,
+      paymentStatus
+    );
+    
     console.log('PDF generated successfully, size:', pdfBytes.length);
 
     // Return PDF
@@ -184,6 +235,14 @@ export async function GET(request: NextRequest) {
         'Content-Disposition': `inline; filename="invoice-${orderId.slice(0, 8)}.pdf"`
       }
     });
+  } catch (pdfError) {
+    console.error('PDF generation error:', pdfError);
+    return NextResponse.json({ 
+      error: 'Failed to generate PDF', 
+      details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF error',
+      branchData: branchData
+    }, { status: 500 });
+  }
 
   } catch (error) {
     console.error('Invoice generation error:', error);
