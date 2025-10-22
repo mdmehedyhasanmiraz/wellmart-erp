@@ -102,17 +102,10 @@ export async function GET(request: NextRequest) {
       parties: partyData
     };
 
-    // Fetch order items with batch information
+    // Fetch order items separately (without batch join for now)
     const { data: items, error: itemsError } = await supabase
       .from('sales_order_items')
-      .select(`
-        *,
-        product_batches(
-          batch_number,
-          expiry_date,
-          manufacturing_date
-        )
-      `)
+      .select('*')
       .eq('order_id', orderId);
 
     console.log('Items fetch result:', { items, itemsError });
@@ -218,12 +211,6 @@ interface InvoiceItem {
   discount_amount: number;
   discount_percent: number;
   total: number;
-  batch_id?: string;
-  product_batches?: {
-    batch_number: string;
-    expiry_date?: string;
-    manufacturing_date?: string;
-  };
   products?: {
     name: string;
   };
@@ -691,8 +678,8 @@ async function generatePDFInvoice(
       color: textColor,
     });
 
-    // Batch number
-    page.drawText(item.product_batches?.batch_number || '-', {
+    // Batch number (will show '-' until batch tracking is implemented)
+    page.drawText('-', {
       x: 205,
       y: yPos - 12,
       size: 9,
