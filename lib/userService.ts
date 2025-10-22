@@ -101,7 +101,7 @@ export class UserService {
       );
 
       const result = await Promise.race([queryPromise, timeoutPromise]);
-      const { data, error } = result as { data: any; error: any };
+      const { data, error } = result as SupabaseQueryResult<UserWithBranch>;
 
       const queryTime = performance.now() - startTime;
       
@@ -112,13 +112,13 @@ export class UserService {
           id: data.id,
           name: data.name,
           email: data.email,
-          role: data.role,
+          role: data.role as UserRole,
           branch_id: data.branch_id,
           branch_name: (data.branches as { name: string }[] | null)?.[0]?.name || undefined,
           is_active: data.is_active,
           created_at: data.created_at,
           updated_at: data.updated_at,
-          permissions: UserService.getUserPermissions(data.role),
+          permissions: UserService.getUserPermissions(data.role as UserRole),
           dashboard_route: DASHBOARD_ROUTES[data.role as UserRole]
         };
 
@@ -141,7 +141,7 @@ export class UserService {
       );
 
       const simpleResult = await Promise.race([simpleQueryPromise, simpleTimeoutPromise]);
-      const { data: userData, error: userError } = simpleResult as { data: any; error: any };
+      const { data: userData, error: userError } = simpleResult as SupabaseQueryResult<UserBasic>;
 
       const fallbackTime = performance.now() - fallbackStartTime;
       
@@ -157,13 +157,13 @@ export class UserService {
         id: userData.id,
         name: userData.name,
         email: userData.email,
-        role: userData.role,
+        role: userData.role as UserRole,
         branch_id: userData.branch_id,
         branch_name: undefined, // Will be populated later if needed
         is_active: userData.is_active,
         created_at: userData.created_at,
         updated_at: userData.updated_at,
-        permissions: UserService.getUserPermissions(userData.role),
+        permissions: UserService.getUserPermissions(userData.role as UserRole),
         dashboard_route: DASHBOARD_ROUTES[userData.role as UserRole]
       };
 
