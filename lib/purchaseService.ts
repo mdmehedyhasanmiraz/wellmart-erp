@@ -157,8 +157,8 @@ export class PurchaseService {
         return false;
       }
 
-      // Create or update batches for each item
-      await this.createOrUpdateBatches(items);
+          // Create or update batches for each item
+          await this.createOrUpdateBatches(items, orderId);
 
       return true;
     } catch (error) {
@@ -167,7 +167,25 @@ export class PurchaseService {
     }
   }
 
-  private static async createOrUpdateBatches(items: Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>): Promise<void> {
+  private static async createOrUpdateBatches(items: Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>, orderId: string): Promise<void> {
+    // Get the purchase order to get the branch_id
+    const { data: order, error: orderError } = await this.supabase
+      .from('purchase_orders')
+      .select('branch_id')
+      .eq('id', orderId)
+      .single();
+
+    if (orderError || !order) {
+      console.error('Error fetching purchase order for batch creation:', orderError);
+      return;
+    }
+
+    const branchId = order.branch_id;
+    if (!branchId) {
+      console.warn('Purchase order has no branch_id, skipping batch creation');
+      return;
+    }
+
     for (const item of items) {
       if (!item.batch_number || !item.product_id) {
         console.warn('Skipping batch creation for item without batch_number or product_id:', item);
@@ -181,10 +199,14 @@ export class PurchaseService {
         if (existingBatch) {
           // Update existing batch quantity
           await BatchService.updateBatchQuantity(existingBatch.id, item.quantity);
-          console.log(`Updated batch ${item.batch_number} with ${item.quantity} units`);
+          
+          // Update or create branch-specific stock
+          await this.updateBranchBatchStock(existingBatch.id, item.product_id, branchId, item.quantity);
+          
+          console.log(`Updated batch ${item.batch_number} with ${item.quantity} units for branch ${branchId}`);
         } else {
           // Create new batch
-          await BatchService.createBatch({
+          const newBatch = await BatchService.createBatch({
             product_id: item.product_id,
             batch_number: item.batch_number,
             cost_price: item.unit_price,
@@ -192,12 +214,46 @@ export class PurchaseService {
             quantity_remaining: item.quantity,
             status: 'active'
           });
-          console.log(`Created new batch ${item.batch_number} with ${item.quantity} units`);
+
+          if (newBatch) {
+            // Create branch-specific stock
+            await BatchService.createBranchBatchStock({
+              product_id: item.product_id,
+              branch_id: branchId,
+              batch_id: newBatch.id,
+              quantity: item.quantity
+            });
+            
+            console.log(`Created new batch ${item.batch_number} with ${item.quantity} units for branch ${branchId}`);
+          }
         }
       } catch (error) {
         console.error(`Error processing batch for item ${item.product_id}:`, error);
         // Continue with other items even if one fails
       }
+    }
+  }
+
+  private static async updateBranchBatchStock(batchId: string, productId: string, branchId: string, additionalQuantity: number): Promise<void> {
+    try {
+      // Check if branch batch stock already exists
+      const existingStock = await BatchService.getBranchBatchStock(productId, branchId, batchId);
+      
+      if (existingStock) {
+        // Update existing stock
+        await BatchService.updateBranchBatchStockQuantity(existingStock.id, additionalQuantity);
+      } else {
+        // Create new branch batch stock
+        await BatchService.createBranchBatchStock({
+          product_id: productId,
+          branch_id: branchId,
+          batch_id: batchId,
+          quantity: additionalQuantity
+        });
+      }
+    } catch (error) {
+      console.error('Error updating branch batch stock:', error);
+      throw error;
     }
   }
 
@@ -243,21 +299,42 @@ export class PurchaseService {
         return;
       }
 
+      // Get the purchase order to get the branch_id
+      const { data: order, error: orderError } = await this.supabase
+        .from('purchase_orders')
+        .select('branch_id')
+        .eq('id', currentItem.order_id)
+        .single();
+
+      if (orderError || !order?.branch_id) {
+        console.error('Error fetching purchase order for batch update:', orderError);
+        return;
+      }
+
+      const branchId = order.branch_id;
+
       // If batch number changed, we need to handle both old and new batches
       if (updates.batch_number && updates.batch_number !== currentItem.batch_number) {
         // Remove quantity from old batch
         const oldBatch = await BatchService.getBatchByNumber(currentItem.product_id, currentItem.batch_number || '');
         if (oldBatch) {
           await BatchService.updateBatchQuantity(oldBatch.id, -currentItem.quantity);
+          // Update branch stock for old batch
+          const oldStock = await BatchService.getBranchBatchStock(currentItem.product_id, branchId, oldBatch.id);
+          if (oldStock) {
+            await BatchService.updateBranchBatchStockQuantity(oldStock.id, -currentItem.quantity);
+          }
         }
 
         // Add quantity to new batch
         const newBatch = await BatchService.getBatchByNumber(currentItem.product_id, newBatchNumber);
         if (newBatch) {
           await BatchService.updateBatchQuantity(newBatch.id, newQuantity);
+          // Update branch stock for new batch
+          await this.updateBranchBatchStock(newBatch.id, currentItem.product_id, branchId, newQuantity);
         } else {
           // Create new batch if it doesn't exist
-          await BatchService.createBatch({
+          const createdBatch = await BatchService.createBatch({
             product_id: currentItem.product_id,
             batch_number: newBatchNumber,
             cost_price: currentItem.unit_price,
@@ -265,12 +342,24 @@ export class PurchaseService {
             quantity_remaining: newQuantity,
             status: 'active'
           });
+          
+          if (createdBatch) {
+            // Create branch stock for new batch
+            await BatchService.createBranchBatchStock({
+              product_id: currentItem.product_id,
+              branch_id: branchId,
+              batch_id: createdBatch.id,
+              quantity: newQuantity
+            });
+          }
         }
       } else if (quantityDifference !== 0) {
         // Just quantity changed, update the same batch
         const batch = await BatchService.getBatchByNumber(currentItem.product_id, newBatchNumber);
         if (batch) {
           await BatchService.updateBatchQuantity(batch.id, quantityDifference);
+          // Update branch stock
+          await this.updateBranchBatchStock(batch.id, currentItem.product_id, branchId, quantityDifference);
         }
       }
     } catch (error) {
@@ -305,10 +394,30 @@ export class PurchaseService {
     // Reduce batch quantity
     if (item.batch_number && item.product_id) {
       try {
-        const batch = await BatchService.getBatchByNumber(item.product_id, item.batch_number);
-        if (batch) {
-          await BatchService.updateBatchQuantity(batch.id, -item.quantity);
-          console.log(`Reduced batch ${item.batch_number} by ${item.quantity} units`);
+        // Get the purchase order to get the branch_id
+        const { data: order, error: orderError } = await this.supabase
+          .from('purchase_orders')
+          .select('branch_id')
+          .eq('id', item.order_id)
+          .single();
+
+        if (orderError || !order?.branch_id) {
+          console.error('Error fetching purchase order for batch deletion:', orderError);
+        } else {
+          const branchId = order.branch_id;
+          
+          const batch = await BatchService.getBatchByNumber(item.product_id, item.batch_number);
+          if (batch) {
+            await BatchService.updateBatchQuantity(batch.id, -item.quantity);
+            
+            // Update branch stock
+            const branchStock = await BatchService.getBranchBatchStock(item.product_id, branchId, batch.id);
+            if (branchStock) {
+              await BatchService.updateBranchBatchStockQuantity(branchStock.id, -item.quantity);
+            }
+            
+            console.log(`Reduced batch ${item.batch_number} by ${item.quantity} units for branch ${branchId}`);
+          }
         }
       } catch (error) {
         console.error('Error reducing batch quantity:', error);

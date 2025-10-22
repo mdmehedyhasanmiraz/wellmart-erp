@@ -29,6 +29,23 @@ export interface CreateBatchData {
   created_by?: string;
 }
 
+export interface ProductBranchBatchStock {
+  id: string;
+  product_id: string;
+  branch_id: string;
+  batch_id: string;
+  quantity: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateBranchBatchStockData {
+  product_id: string;
+  branch_id: string;
+  batch_id: string;
+  quantity: number;
+}
+
 export class BatchService {
   private static supabase = supabase;
 
@@ -205,6 +222,117 @@ export class BatchService {
       return true;
     } catch (error) {
       console.error('Error in deleteBatch:', error);
+      throw error;
+    }
+  }
+
+  // Branch-specific batch stock methods
+  static async createBranchBatchStock(stockData: CreateBranchBatchStockData): Promise<ProductBranchBatchStock | null> {
+    try {
+      const { data, error } = await this.supabase
+        .from('product_branch_batch_stocks')
+        .insert([stockData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating branch batch stock:', error);
+        throw new Error(`Failed to create branch batch stock: ${error.message}`);
+      }
+
+      return data as ProductBranchBatchStock;
+    } catch (error) {
+      console.error('Error in createBranchBatchStock:', error);
+      throw error;
+    }
+  }
+
+  static async getBranchBatchStock(productId: string, branchId: string, batchId: string): Promise<ProductBranchBatchStock | null> {
+    try {
+      const { data, error } = await this.supabase
+        .from('product_branch_batch_stocks')
+        .select('*')
+        .eq('product_id', productId)
+        .eq('branch_id', branchId)
+        .eq('batch_id', batchId)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null;
+        }
+        console.error('Error fetching branch batch stock:', error);
+        throw new Error(`Failed to fetch branch batch stock: ${error.message}`);
+      }
+
+      return data as ProductBranchBatchStock;
+    } catch (error) {
+      console.error('Error in getBranchBatchStock:', error);
+      throw error;
+    }
+  }
+
+  static async updateBranchBatchStockQuantity(stockId: string, additionalQuantity: number): Promise<boolean> {
+    try {
+      // First get the current stock
+      const { data: currentStock, error: fetchError } = await this.supabase
+        .from('product_branch_batch_stocks')
+        .select('quantity')
+        .eq('id', stockId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching branch batch stock for update:', fetchError);
+        throw new Error(`Failed to fetch branch batch stock: ${fetchError.message}`);
+      }
+
+      // Update quantity
+      const { error } = await this.supabase
+        .from('product_branch_batch_stocks')
+        .update({
+          quantity: currentStock.quantity + additionalQuantity,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', stockId);
+
+      if (error) {
+        console.error('Error updating branch batch stock quantity:', error);
+        throw new Error(`Failed to update branch batch stock quantity: ${error.message}`);
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error in updateBranchBatchStockQuantity:', error);
+      throw error;
+    }
+  }
+
+  static async getBranchBatchStocksByProduct(productId: string, branchId: string): Promise<ProductBranchBatchStock[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('product_branch_batch_stocks')
+        .select(`
+          *,
+          product_batches!inner(
+            batch_number,
+            expiry_date,
+            manufacturing_date,
+            cost_price,
+            status
+          )
+        `)
+        .eq('product_id', productId)
+        .eq('branch_id', branchId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching branch batch stocks by product:', error);
+        throw new Error(`Failed to fetch branch batch stocks: ${error.message}`);
+      }
+
+      return data as ProductBranchBatchStock[];
+    } catch (error) {
+      console.error('Error in getBranchBatchStocksByProduct:', error);
       throw error;
     }
   }
