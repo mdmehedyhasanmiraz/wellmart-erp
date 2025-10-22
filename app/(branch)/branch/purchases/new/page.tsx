@@ -1,16 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import AdminSidebar from '../../components/AdminSidebar';
-import { Branch, Product, SalesOrder, SalesOrderItem, Employee } from '@/types/user';
-import { BranchService } from '@/lib/branchService';
+import BranchSidebar from '../../components/BranchSidebar';
+import { Product, PurchaseOrder, PurchaseOrderItem, Employee } from '@/types/user';
 import { ProductService } from '@/lib/productService';
-import { SalesService } from '@/lib/salesService';
+import { PurchaseService } from '@/lib/purchaseService';
 import { InventoryService } from '@/lib/inventoryService';
 import { EmployeeService } from '@/lib/employeeService';
 import { useRouter } from 'next/navigation';
-import { Party, ProductBranchBatchStock } from '@/types/user';
-import { PartyService } from '@/lib/partyService';
+import { Supplier, ProductBranchBatchStock } from '@/types/user';
+import { SupplierService } from '@/lib/supplierService';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Line = {
   product_id: string;
@@ -18,80 +18,72 @@ type Line = {
   unit_price: number;
   discount_amount: number;
   discount_percent: number;
-  batch_id?: string;
+  batch_number?: string;
 };
 
-export default function NewSalesPage() {
+export default function BranchNewPurchasePage() {
   const router = useRouter();
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const { userProfile } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
-  const [branchId, setBranchId] = useState<string>('');
-  const [parties, setParties] = useState<Party[]>([]);
-  const [partyId, setPartyId] = useState<string>('');
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [supplierId, setSupplierId] = useState<string>('');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [employeeId, setEmployeeId] = useState<string>('');
-  const [customerName, setCustomerName] = useState<string>('');
-  const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [supplierName, setSupplierName] = useState<string>('');
+  const [supplierPhone, setSupplierPhone] = useState<string>('');
   const [discountTotal, setDiscountTotal] = useState<number>(0);
   const [taxTotal, setTaxTotal] = useState<number>(0);
   const [shippingTotal, setShippingTotal] = useState<number>(0);
   const [paidTotal, setPaidTotal] = useState<number>(0);
   const [note, setNote] = useState<string>('');
-  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_id: '' }]);
+  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [uploadingImages, setUploadingImages] = useState<boolean>(false);
 
   useEffect(() => {
     const load = async () => {
-      const [b, p, pr, e] = await Promise.all([
-        BranchService.getAll(), 
-        ProductService.getAllProducts(), 
-        PartyService.list(),
-        EmployeeService.getAll()
-      ]);
-      setBranches(b);
-      setProducts(p);
-      setParties(pr);
-      setEmployees(e);
-      setBranchId(b[0]?.id || '');
-      setPartyId(pr[0]?.id || '');
+      if (!userProfile?.branch_id) {
+        console.error('No branch ID found for user');
+        return;
+      }
+
+      try {
+        const [p, s, e] = await Promise.all([
+          ProductService.getAllProducts(), 
+          SupplierService.getSuppliersByBranch(userProfile.branch_id),
+          EmployeeService.getAll()
+        ]);
+        setProducts(p);
+        setSuppliers(s);
+        setEmployees(e);
+        
+        // Set default supplier if available
+        if (s.length > 0) {
+          setSupplierId(s[0].id);
+          setSupplierName(s[0].name);
+          setSupplierPhone(s[0].phone || '');
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        alert('Failed to load data');
+      }
     };
     load();
-  }, []);
+  }, [userProfile?.branch_id]);
 
-  // Filter employees when branch changes
+  // Filter employees for current branch
   useEffect(() => {
-    if (branchId && employees.length > 0) {
-      const branchEmployees = employees.filter(emp => emp.branch_id === branchId && emp.is_active);
+    if (userProfile?.branch_id && employees.length > 0) {
+      const branchEmployees = employees.filter(emp => emp.branch_id === userProfile.branch_id && emp.is_active);
       if (branchEmployees.length > 0) {
         setEmployeeId(branchEmployees[0].id);
       } else {
         setEmployeeId('');
       }
     }
-  }, [branchId, employees]);
-
-  // Filter parties when branch changes and auto-populate customer details
-  useEffect(() => {
-    if (branchId && parties.length > 0) {
-      // Show parties assigned to current branch OR parties without branch assignment
-      const branchParties = parties.filter(party => 
-        (party.branch_id === branchId || party.branch_id === null) && party.is_active
-      );
-      
-      if (branchParties.length > 0) {
-        setPartyId(branchParties[0].id);
-        // Auto-populate customer details from first party
-        const firstParty = branchParties[0];
-        setCustomerName(firstParty.name);
-        setCustomerPhone(firstParty.phone || '');
-      } else {
-        setPartyId('');
-        setCustomerName('');
-        setCustomerPhone('');
-      }
-    }
-  }, [branchId, parties]);
+  }, [userProfile?.branch_id, employees]);
 
   const totals = useMemo(() => {
     const lineTotals = lines.map((l) => {
@@ -108,13 +100,13 @@ export default function NewSalesPage() {
   const setLine = (idx: number, update: Partial<Line>) => {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...update } : l)));
   };
-  const addLine = () => setLines((prev) => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_id: '' }]);
+  const addLine = () => setLines((prev) => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
   const removeLine = (idx: number) => setLines((prev) => prev.filter((_, i) => i !== idx));
 
   const loadBatchStocks = async (productId: string) => {
-    if (!productId || !branchId) return;
+    if (!productId || !userProfile?.branch_id) return;
     try {
-      const stocks = await InventoryService.getBatchStocksByBranch(productId, branchId);
+      const stocks = await InventoryService.getBatchStocksByBranch(productId, userProfile.branch_id);
       setBatchStocks(prev => ({ ...prev, [productId]: stocks }));
     } catch (error) {
       console.error('Error loading batch stocks:', error);
@@ -125,109 +117,153 @@ export default function NewSalesPage() {
     const product = products.find(p => p.id === productId);
     setLine(idx, { 
       product_id: productId, 
-      unit_price: product?.tp || 0,
-      batch_id: ''
+      unit_price: product?.pp || 0, // Use purchase price (pp) instead of trade price (tp)
+      batch_number: ''
     });
     await loadBatchStocks(productId);
   };
 
+  const handleImageUpload = async (files: FileList | null) => {
+    if (!files) return;
+    
+    setUploadingImages(true);
+    const uploadPromises = Array.from(files).map(async (file) => {
+      try {
+        const imageUrl = await PurchaseService.uploadImage(file);
+        return imageUrl;
+      } catch (error) {
+        console.error('Error uploading image:', error);
+        alert(`Failed to upload ${file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        return null;
+      }
+    });
+
+    try {
+      const results = await Promise.all(uploadPromises);
+      const validUrls = results.filter(url => url !== null) as string[];
+      setUploadedImages(prev => [...prev, ...validUrls]);
+      
+      if (validUrls.length < files.length) {
+        alert('Some images failed to upload. Please check the console for details.');
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      alert('Failed to upload images. Please try again.');
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const handleImageRemove = async (index: number) => {
+    const imageUrl = uploadedImages[index];
+    const success = await PurchaseService.deleteImage(imageUrl);
+    
+    if (success) {
+      setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    } else {
+      alert('Failed to delete image');
+    }
+  };
+
   const canSubmit = useMemo(() => {
-    if (!branchId) return false;
+    if (!userProfile?.branch_id) return false;
     if (lines.length === 0) return false;
     for (const l of lines) {
       if (!l.product_id || l.quantity <= 0 || l.unit_price < 0) return false;
     }
     return true;
-  }, [branchId, lines]);
+  }, [userProfile?.branch_id, lines]);
 
   const handleSubmit = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !userProfile?.branch_id) return;
     setSubmitting(true);
-    const order: SalesOrder | null = await SalesService.createOrder({
-      branch_id: branchId,
-      party_id: partyId || undefined,
+    const order: PurchaseOrder | null = await PurchaseService.createOrder({
+      branch_id: userProfile.branch_id,
+      supplier_id: supplierId || undefined,
       employee_id: employeeId || undefined,
-      customer_name: customerName,
-      customer_phone: customerPhone,
+      supplier_name: supplierName,
+      supplier_phone: supplierPhone,
       discount_total: discountTotal,
       tax_total: taxTotal,
       shipping_total: shippingTotal,
       paid_total: paidTotal,
       due_total: totals.due,
       note,
+      image_urls: uploadedImages.length > 0 ? uploadedImages : undefined,
       status: 'posted',
-    } as Partial<SalesOrder>);
+    });
     if (!order) { setSubmitting(false); alert('Failed to create order'); return; }
-    const ok = await SalesService.addItems(order.id, lines as unknown as Array<Omit<SalesOrderItem, 'id' | 'order_id' | 'total'>>);
+    const ok = await PurchaseService.addItems(order.id, lines as unknown as Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>);
     setSubmitting(false);
     if (ok) {
-      router.push('/admin/sales');
+      router.push('/branch/purchases');
     } else {
       alert('Failed to add items');
     }
   };
 
+  if (!userProfile?.branch_id) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex">
+        <BranchSidebar />
+        <div className="p-8 w-full">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900">Access Denied</h1>
+            <p className="text-gray-600 mt-2">You need to be assigned to a branch to create purchases.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      <AdminSidebar />
+      <BranchSidebar />
       <div className="p-8 w-full">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">New Invoice</h1>
-            <p className="text-gray-600">Create a sales invoice</p>
+            <h1 className="text-2xl font-bold text-gray-900">New Purchase</h1>
+            <p className="text-gray-600">Create a purchase order for {userProfile.branch_name}</p>
           </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Branch</label>
-              <select value={branchId} onChange={(e) => setBranchId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">Customer (Party)</label>
-              <select value={partyId} onChange={(e) => {
-                const selectedPartyId = e.target.value;
-                setPartyId(selectedPartyId);
+              <label className="block text-sm text-gray-600 mb-2">Supplier</label>
+              <select value={supplierId} onChange={(e) => {
+                const selectedSupplierId = e.target.value;
+                setSupplierId(selectedSupplierId);
                 
-                // Auto-populate customer details from selected party
-                if (selectedPartyId) {
-                  const selectedParty = parties.find(p => p.id === selectedPartyId);
-                  if (selectedParty) {
-                    setCustomerName(selectedParty.name);
-                    setCustomerPhone(selectedParty.phone || '');
+                // Auto-populate supplier details from selected supplier
+                if (selectedSupplierId) {
+                  const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+                  if (selectedSupplier) {
+                    setSupplierName(selectedSupplier.name);
+                    setSupplierPhone(selectedSupplier.phone || '');
                   }
                 } else {
-                  setCustomerName('');
-                  setCustomerPhone('');
+                  setSupplierName('');
+                  setSupplierPhone('');
                 }
               }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <option value="">Select a party</option>
-                {(() => {
-                  // Show parties assigned to current branch OR parties without branch assignment
-                  const filteredParties = parties.filter(party => 
-                    (party.branch_id === branchId || party.branch_id === null) && party.is_active
-                  );
-                  return filteredParties.map((pr) => (
-                    <option key={pr.id} value={pr.id}>
-                      {pr.name} {pr.branch_id ? `(${branches.find(b => b.id === pr.branch_id)?.name || 'Unknown Branch'})` : '(No Branch)'}
-                    </option>
-                  ));
-                })()}
+                <option value="">Select a supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Customer Name</label>
-              <input value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+              <label className="block text-sm text-gray-600 mb-2">Supplier Name</label>
+              <input value={supplierName} onChange={(e) => setSupplierName(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Customer Phone</label>
-              <input value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)}
+              <label className="block text-sm text-gray-600 mb-2">Supplier Phone</label>
+              <input value={supplierPhone} onChange={(e) => setSupplierPhone(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
@@ -236,7 +272,7 @@ export default function NewSalesPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                 <option value="">Select employee</option>
                 {employees
-                  .filter(emp => emp.branch_id === branchId && emp.is_active)
+                  .filter(emp => emp.branch_id === userProfile.branch_id && emp.is_active)
                   .map((emp) => (
                     <option key={emp.id} value={emp.id}>
                       {emp.name} ({emp.employee_code})
@@ -258,7 +294,7 @@ export default function NewSalesPage() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (TP)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (PP)</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc Amt</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc %</th>
                     <th className="px-3 py-2"></th>
@@ -275,12 +311,12 @@ export default function NewSalesPage() {
                         </select>
                       </td>
                       <td className="px-3 py-2">
-                        <select value={l.batch_id || ''} onChange={(e) => setLine(idx, { batch_id: e.target.value })}
+                        <select value={l.batch_number || ''} onChange={(e) => setLine(idx, { batch_number: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                           disabled={!l.product_id}>
                           <option value="">Select batch</option>
                           {batchStocks[l.product_id]?.map((stock) => (
-                            <option key={stock.batch_id} value={stock.batch_id}>
+                            <option key={stock.batch_id} value={stock.product_batches?.batch_number || ''}>
                               {stock.product_batches?.batch_number} ({stock.quantity} units)
                             </option>
                           ))}
@@ -351,10 +387,58 @@ export default function NewSalesPage() {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
           </div>
 
+          <div>
+            <label className="block text-sm text-gray-600 mb-2">Invoice Images</label>
+            <div className="space-y-4">
+              <div className="flex items-center space-x-4">
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                  id="image-upload"
+                  disabled={uploadingImages}
+                />
+                <label
+                  htmlFor="image-upload"
+                  className={`px-4 py-2 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:border-purple-500 transition-colors ${
+                    uploadingImages ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                >
+                  {uploadingImages ? 'Uploading...' : 'Choose Images'}
+                </label>
+                <span className="text-sm text-gray-500">
+                  Upload invoice images (JPG, PNG, etc.)
+                </span>
+              </div>
+              
+              {uploadedImages.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {uploadedImages.map((imageUrl, index) => (
+                    <div key={index} className="relative group">
+                      <img
+                        src={imageUrl}
+                        alt={`Invoice ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg border border-gray-200"
+                      />
+                      <button
+                        onClick={() => handleImageRemove(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <button disabled={!canSubmit || submitting} onClick={handleSubmit}
               className={`px-6 py-2 rounded-lg text-white ${!canSubmit || submitting ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'}`}>
-              {submitting ? 'Processing...' : 'Make Sale'}
+              {submitting ? 'Processing...' : 'Make Purchase'}
             </button>
           </div>
         </div>
@@ -362,5 +446,3 @@ export default function NewSalesPage() {
     </div>
   );
 }
-
-

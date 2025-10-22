@@ -526,7 +526,7 @@ export interface SalesOrderItem {
   discount_amount: number;
   discount_percent: number;
   total: number;
-  batch_number?: string;
+  batch_id?: string;
 }
 
 export interface SalesPayment {

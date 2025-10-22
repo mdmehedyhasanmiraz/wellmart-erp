@@ -379,7 +379,7 @@ export default function EditSalesPage() {
                     <td className="px-4 py-2 text-sm">
                       {products.find(p => p.id === item.product_id)?.name || 'Unknown Product'}
                     </td>
-                    <td className="px-4 py-2 text-sm">{item.batch_number || '-'}</td>
+                    <td className="px-4 py-2 text-sm">{item.batch_id || '-'}</td>
                     <td className="px-4 py-2 text-sm">{item.quantity}</td>
                     <td className="px-4 py-2 text-sm">BDT {item.unit_price.toFixed(2)}</td>
                     <td className="px-4 py-2 text-sm">BDT {item.discount_amount.toFixed(2)}</td>

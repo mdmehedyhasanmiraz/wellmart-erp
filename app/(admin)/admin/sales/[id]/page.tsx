@@ -77,7 +77,7 @@ export default function SalesViewPage() {
                     {items.map((it) => (
                       <tr key={it.id}>
                         <td className="px-3 py-2 text-sm">{it.product_id.slice(0,8)}</td>
-                        <td className="px-3 py-2 text-sm">{it.batch_number || '-'}</td>
+                        <td className="px-3 py-2 text-sm">{it.batch_id || '-'}</td>
                         <td className="px-3 py-2 text-sm">{it.quantity}</td>
                         <td className="px-3 py-2 text-sm">৳{it.unit_price.toFixed(2)}</td>
                         <td className="px-3 py-2 text-sm">৳{it.discount_amount.toFixed(2)} / {it.discount_percent}%</td>

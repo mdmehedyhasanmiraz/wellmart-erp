@@ -65,6 +65,11 @@ const adminMenuItems = [
     icon: <Users className="w-5 h-5" />,
   },
   {
+    name: 'Suppliers',
+    href: '/admin/suppliers',
+    icon: <Factory className="w-5 h-5" />,
+  },
+  {
     name: 'Employees',
     href: '/admin/employees',
     icon: <UserCog className="w-5 h-5" />,
@@ -90,11 +95,6 @@ const adminMenuItems = [
     icon: <Banknote className="w-5 h-5" />,
   },
   {
-    name: 'Suppliers',
-    href: '/admin/suppliers',
-    icon: <Factory className="w-5 h-5" />,
-  },
-  {
     name: 'Users',
     href: '/admin/users',
     icon: <User className="w-5 h-5" />,
@@ -114,11 +114,11 @@ const adminMenuItems = [
   //   href: '/admin/companies',
   //   icon: <Building2 className="w-5 h-5" />,
   // },
-  {
-    name: 'Reports',
-    href: '/admin/reports',
-    icon: <BarChart3 className="w-5 h-5" />,
-  },
+  // {
+  //   name: 'Reports',
+  //   href: '/admin/reports',
+  //   icon: <BarChart3 className="w-5 h-5" />,
+  // },
   // {
   //   name: 'Settings',
   //   href: '/admin/settings',
@@ -143,15 +143,15 @@ export default function AdminSidebar() {
     },
     {
       title: 'Operations',
-      items: adminMenuItems.slice(1, 7), // Products, Inventory, Add Stock, Transfers, Sales, Purchases
+      items: adminMenuItems.slice(1, 6), // Products, Inventory, Add Stock, Transfers, Sales, Purchases, Suppliers
     },
     {
       title: 'Management',
-      items: adminMenuItems.slice(7, 13), // Parties, Employees, Designations, Allowances, Suppliers, Users
+      items: adminMenuItems.slice(6, 11), // Parties, Employees, Designations, Allowances
     },
     {
       title: 'Configuration',
-      items: adminMenuItems.slice(13), // Branches, Reports, Settings
+      items: adminMenuItems.slice(11), // Branches, Users
     },
   ];
 

@@ -102,10 +102,17 @@ export async function GET(request: NextRequest) {
       parties: partyData
     };
 
-    // Fetch order items separately
+    // Fetch order items with batch information
     const { data: items, error: itemsError } = await supabase
       .from('sales_order_items')
-      .select('*')
+      .select(`
+        *,
+        product_batches(
+          batch_number,
+          expiry_date,
+          manufacturing_date
+        )
+      `)
       .eq('order_id', orderId);
 
     console.log('Items fetch result:', { items, itemsError });
@@ -211,7 +218,12 @@ interface InvoiceItem {
   discount_amount: number;
   discount_percent: number;
   total: number;
-  batch_number?: string;
+  batch_id?: string;
+  product_batches?: {
+    batch_number: string;
+    expiry_date?: string;
+    manufacturing_date?: string;
+  };
   products?: {
     name: string;
   };
@@ -619,7 +631,7 @@ async function generatePDFInvoice(
   });
 
   // Table headers
-  const headers = ['Product', 'Batch', 'Qty', 'Unit Price', 'Discount', 'Total'];
+  const headers = ['Product', 'Batch', 'Qty', 'Unit TP', 'Discount', 'Total'];
   let xPos = 50;
   headers.forEach((header, index) => {
     page.drawText(header, {
@@ -680,7 +692,7 @@ async function generatePDFInvoice(
     });
 
     // Batch number
-    page.drawText(item.batch_number || '-', {
+    page.drawText(item.product_batches?.batch_number || '-', {
       x: 205,
       y: yPos - 12,
       size: 9,
@@ -698,7 +710,7 @@ async function generatePDFInvoice(
     });
 
     // Unit price
-    page.drawText(`BDT ${item.unit_price.toFixed(2)}`, {
+    page.drawText(`${item.unit_price.toFixed(2)}`, {
       x: 325,
       y: yPos - 12,
       size: 9,
@@ -707,7 +719,7 @@ async function generatePDFInvoice(
     });
 
     // Discount
-    page.drawText(`BDT ${item.discount_amount.toFixed(2)}`, {
+    page.drawText(`${item.discount_amount.toFixed(2)}`, {
       x: 405,
       y: yPos - 12,
       size: 9,
@@ -716,7 +728,7 @@ async function generatePDFInvoice(
     });
 
     // Total
-    page.drawText(`BDT ${item.total.toFixed(2)}`, {
+    page.drawText(`${item.total.toFixed(2)}`, {
       x: 465,
       y: yPos - 12,
       size: 9,
@@ -748,7 +760,7 @@ async function generatePDFInvoice(
     font: font,
     color: textColor,
   });
-  page.drawText(`BDT ${order.subtotal.toFixed(2)}`, {
+  page.drawText(`${order.subtotal.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
@@ -764,7 +776,7 @@ async function generatePDFInvoice(
     font: font,
     color: textColor,
   });
-  page.drawText(`-BDT ${order.discount_total.toFixed(2)}`, {
+  page.drawText(`-${order.discount_total.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
@@ -780,7 +792,7 @@ async function generatePDFInvoice(
     font: font,
     color: textColor,
   });
-  page.drawText(`BDT ${order.tax_total.toFixed(2)}`, {
+  page.drawText(`${order.tax_total.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
@@ -796,7 +808,7 @@ async function generatePDFInvoice(
     font: font,
     color: textColor,
   });
-  page.drawText(`BDT ${order.shipping_total.toFixed(2)}`, {
+  page.drawText(`${order.shipping_total.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
@@ -822,7 +834,7 @@ async function generatePDFInvoice(
     color: accentColor,
   });
 
-  page.drawText(`BDT ${order.grand_total.toFixed(2)}`, {
+  page.drawText(`${order.grand_total.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 10,
@@ -839,7 +851,7 @@ async function generatePDFInvoice(
     color: textColor,
   });
 
-  page.drawText(`BDT ${order.paid_total.toFixed(2)}`, {
+  page.drawText(`${order.paid_total.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
@@ -856,7 +868,7 @@ async function generatePDFInvoice(
     color: textColor,
   });
 
-  page.drawText(`BDT ${order.due_total.toFixed(2)}`, {
+  page.drawText(`${order.due_total.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
@@ -960,7 +972,7 @@ async function generatePDFInvoice(
         color: textColor,
       });
       
-      page.drawText(`BDT ${payment.amount.toFixed(2)}`, {
+      page.drawText(`${payment.amount.toFixed(2)}`, {
         x: 400,
         y: yPos,
         size: 9,
@@ -991,6 +1003,92 @@ async function generatePDFInvoice(
       color: textColor,
     });
   }
+
+  // Signature Section
+  yPos -= 60;
+  
+  // Check if we need a new page for signatures
+  if (checkPageSpace(80)) {
+    addNewPage();
+  }
+  
+  // Left signature area - Created By
+  const leftSigX = 50;
+  const rightSigX = width / 2 + 25;
+  const sigWidth = (width - 100) / 2 - 25;
+  const sigHeight = 60;
+  
+  // Draw signature box for Created By
+  page.drawRectangle({
+    x: leftSigX,
+    y: yPos - sigHeight,
+    width: sigWidth,
+    height: sigHeight,
+    borderColor: lightGray,
+    borderWidth: 1,
+  });
+  
+  // Created By label
+  page.drawText('Created By:', {
+    x: leftSigX + 5,
+    y: yPos - 15,
+    size: 10,
+    font: boldFont,
+    color: textColor,
+  });
+  
+  // Signature line
+  page.drawLine({
+    start: { x: leftSigX + 5, y: yPos - 35 },
+    end: { x: leftSigX + sigWidth - 5, y: yPos - 35 },
+    thickness: 1,
+    color: textColor,
+  });
+  
+  // Date line
+  page.drawText('Date: _______________', {
+    x: leftSigX + 5,
+    y: yPos - 50,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
+  
+  // Right signature area - Authorized By
+  page.drawRectangle({
+    x: rightSigX,
+    y: yPos - sigHeight,
+    width: sigWidth,
+    height: sigHeight,
+    borderColor: lightGray,
+    borderWidth: 1,
+  });
+  
+  // Authorized By label
+  page.drawText('Authorized By:', {
+    x: rightSigX + 5,
+    y: yPos - 15,
+    size: 10,
+    font: boldFont,
+    color: textColor,
+  });
+  
+  // Signature line
+  page.drawLine({
+    start: { x: rightSigX + 5, y: yPos - 35 },
+    end: { x: rightSigX + sigWidth - 5, y: yPos - 35 },
+    thickness: 1,
+    color: textColor,
+  });
+  
+  // Date line
+  page.drawText('Date: _______________', {
+    x: rightSigX + 5,
+    y: yPos - 50,
+    size: 9,
+    font: font,
+    color: textColor,
+  });
 
   // Footer
   // yPos = 50;

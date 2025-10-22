@@ -309,27 +309,60 @@ export class PurchaseService {
 
   static async uploadImage(file: File): Promise<string | null> {
     try {
+      // Check if user is authenticated
+      const { data: { user }, error: authError } = await this.supabase.auth.getUser();
+      if (authError || !user) {
+        console.error('User not authenticated:', authError);
+        throw new Error('User must be authenticated to upload images');
+      }
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Invalid file type. Only images are allowed.');
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        throw new Error('File size too large. Maximum size is 10MB.');
+      }
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `purchase-invoices/${fileName}`;
 
+      console.log('Uploading file:', { fileName, filePath, fileSize: file.size, fileType: file.type });
+
       const { data, error } = await this.supabase.storage
         .from('images')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (error) {
-        console.error('Error uploading image:', error);
-        return null;
+        console.error('Storage upload error:', error);
+        
+        // Provide more specific error messages
+        if (error.message.includes('row-level security')) {
+          throw new Error('Storage access denied. Please contact your administrator to configure storage permissions.');
+        } else if (error.message.includes('bucket')) {
+          throw new Error('Storage bucket not found. Please contact your administrator.');
+        } else {
+          throw new Error(`Upload failed: ${error.message}`);
+        }
       }
 
       const { data: { publicUrl } } = this.supabase.storage
         .from('images')
         .getPublicUrl(filePath);
 
+      console.log('Upload successful:', publicUrl);
       return publicUrl;
     } catch (error) {
       console.error('Error uploading image:', error);
-      return null;
+      throw error; // Re-throw to let the calling code handle it
     }
   }
 
