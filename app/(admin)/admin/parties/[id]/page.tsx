@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import AdminSidebar from '../../components/AdminSidebar';
+import AdminSidebar from '@/app/(admin)/admin/components/AdminSidebar';
 import { Party, Branch, Employee } from '@/types/user';
 import { PartyService } from '@/lib/partyService';
 import { BranchService } from '@/lib/branchService';
@@ -91,7 +91,7 @@ export default function AdminPartyViewPage() {
         <div className="p-8 w-full">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900">Party Not Found</h1>
-            <p className="text-gray-600 mt-2">The party you're looking for doesn't exist.</p>
+            <p className="text-gray-600 mt-2">The party you&apos;re looking for doesn&apos;t exist.</p>
             <Link
               href="/admin/parties"
               className="mt-4 inline-block px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
