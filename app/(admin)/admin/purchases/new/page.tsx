@@ -138,7 +138,7 @@ export default function NewPurchasePage() {
     
     setUploadingImages(true);
     const uploadPromises = Array.from(files).map(async (file) => {
-      const imageUrl = await PurchaseService.uploadImage(file);
+      const imageUrl = await PurchaseService.uploadFile(file);
       return imageUrl;
     });
 
@@ -156,7 +156,7 @@ export default function NewPurchasePage() {
 
   const handleImageRemove = async (index: number) => {
     const imageUrl = uploadedImages[index];
-    const success = await PurchaseService.deleteImage(imageUrl);
+    const success = await PurchaseService.deleteFile(imageUrl);
     
     if (success) {
       setUploadedImages(prev => prev.filter((_, i) => i !== index));
@@ -385,13 +385,13 @@ export default function NewPurchasePage() {
           </div>
 
           <div>
-            <label className="block text-sm text-gray-600 mb-2">Invoice Images</label>
+            <label className="block text-sm text-gray-600 mb-2">Invoice Files</label>
             <div className="space-y-4">
               <div className="flex items-center space-x-4">
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="*/*"
                   onChange={(e) => handleImageUpload(e.target.files)}
                   className="hidden"
                   id="image-upload"

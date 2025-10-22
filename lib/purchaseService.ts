@@ -435,35 +435,30 @@ export class PurchaseService {
     return count || 0;
   }
 
-  static async uploadImage(file: File): Promise<string | null> {
+  static async uploadFile(file: File): Promise<string | null> {
     try {
       // Check if user is authenticated
       const { data: { user }, error: authError } = await this.supabase.auth.getUser();
       if (authError || !user) {
         console.error('User not authenticated:', authError);
-        throw new Error('User must be authenticated to upload images');
+        throw new Error('User must be authenticated to upload files');
       }
 
-      // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error('Invalid file type. Only images are allowed.');
-      }
-
-      // Validate file size (max 10MB)
-      const maxSize = 10 * 1024 * 1024; // 10MB
+      // Validate file size (max 50MB for invoices/documents)
+      const maxSize = 50 * 1024 * 1024; // 50MB
       if (file.size > maxSize) {
-        throw new Error('File size too large. Maximum size is 10MB.');
+        throw new Error('File size too large. Maximum size is 50MB.');
       }
 
-      const fileExt = file.name.split('.').pop();
+      // Get file extension
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'bin';
       const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `purchase-invoices/${fileName}`;
 
       console.log('Uploading file:', { fileName, filePath, fileSize: file.size, fileType: file.type });
 
       const { data, error } = await this.supabase.storage
-        .from('images')
+        .from('invoices')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -483,36 +478,36 @@ export class PurchaseService {
       }
 
       const { data: { publicUrl } } = this.supabase.storage
-        .from('images')
+        .from('invoices')
         .getPublicUrl(filePath);
 
       console.log('Upload successful:', publicUrl);
       return publicUrl;
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error('Error uploading file:', error);
       throw error; // Re-throw to let the calling code handle it
     }
   }
 
-  static async deleteImage(imageUrl: string): Promise<boolean> {
+  static async deleteFile(fileUrl: string): Promise<boolean> {
     try {
       // Extract file path from URL
-      const urlParts = imageUrl.split('/');
+      const urlParts = fileUrl.split('/');
       const fileName = urlParts[urlParts.length - 1];
       const filePath = `purchase-invoices/${fileName}`;
 
       const { error } = await this.supabase.storage
-        .from('images')
+        .from('invoices')
         .remove([filePath]);
 
       if (error) {
-        console.error('Error deleting image:', error);
+        console.error('Error deleting file:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error deleting image:', error);
+      console.error('Error deleting file:', error);
       return false;
     }
   }
