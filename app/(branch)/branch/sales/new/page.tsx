@@ -18,7 +18,7 @@ interface Line {
   unit_price: number;
   discount_amount: number;
   discount_percent: number;
-  batch_number: string;
+  batch_id: string;
 }
 
 export default function BranchNewSalePage() {
@@ -41,7 +41,7 @@ export default function BranchNewSalePage() {
   const [shippingTotal, setShippingTotal] = useState<number>(0);
   const [paidTotal, setPaidTotal] = useState<number>(0);
   const [note, setNote] = useState<string>('');
-  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
+  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_id: '' }]);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
 
@@ -90,7 +90,7 @@ export default function BranchNewSalePage() {
   };
 
   const addLine = () => {
-    setLines(prev => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
+    setLines(prev => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_id: '' }]);
   };
 
   const removeLine = (idx: number) => {
@@ -104,7 +104,7 @@ export default function BranchNewSalePage() {
     setLine(idx, { 
       product_id: productId, 
       unit_price: product?.tp || 0, // Use trade price (tp) for sales
-      batch_number: ''
+      batch_id: ''
     });
     await loadBatchStocks(productId);
   };
@@ -250,11 +250,11 @@ export default function BranchNewSalePage() {
                   </div>
                   <div>
                     <label className="block text-sm text-gray-600 mb-2">Batch</label>
-                    <select value={line.batch_number} onChange={(e) => setLine(idx, { batch_number: e.target.value })}
+                    <select value={line.batch_id} onChange={(e) => setLine(idx, { batch_id: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                       <option value="">Select Batch</option>
                       {batchStocks[line.product_id]?.map(stock => (
-                        <option key={stock.id} value={stock.id}>
+                        <option key={stock.batch_id} value={stock.batch_id}>
                           {stock.product_batches?.batch_number} (Qty: {stock.quantity})
                         </option>
                       ))}

@@ -241,7 +241,7 @@ export default function BranchEditSalePage() {
                           {product?.name || 'Unknown Product'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {item.batch_number || '-'}
+                          {item.batch_id || '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {item.quantity}
