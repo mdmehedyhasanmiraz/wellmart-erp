@@ -6,6 +6,7 @@ import {
   CreatePurchaseOrderData, 
   UpdatePurchaseOrderData 
 } from '@/types/user';
+import { BatchService } from './batchService';
 
 export class PurchaseService {
   private static supabase = supabase;
@@ -156,6 +157,9 @@ export class PurchaseService {
         return false;
       }
 
+      // Create or update batches for each item
+      await this.createOrUpdateBatches(items);
+
       return true;
     } catch (error) {
       console.error('addItems error', error);
@@ -163,7 +167,53 @@ export class PurchaseService {
     }
   }
 
+  private static async createOrUpdateBatches(items: Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>): Promise<void> {
+    for (const item of items) {
+      if (!item.batch_number || !item.product_id) {
+        console.warn('Skipping batch creation for item without batch_number or product_id:', item);
+        continue;
+      }
+
+      try {
+        // Check if batch already exists
+        const existingBatch = await BatchService.getBatchByNumber(item.product_id, item.batch_number);
+        
+        if (existingBatch) {
+          // Update existing batch quantity
+          await BatchService.updateBatchQuantity(existingBatch.id, item.quantity);
+          console.log(`Updated batch ${item.batch_number} with ${item.quantity} units`);
+        } else {
+          // Create new batch
+          await BatchService.createBatch({
+            product_id: item.product_id,
+            batch_number: item.batch_number,
+            cost_price: item.unit_price,
+            quantity_received: item.quantity,
+            quantity_remaining: item.quantity,
+            status: 'active'
+          });
+          console.log(`Created new batch ${item.batch_number} with ${item.quantity} units`);
+        }
+      } catch (error) {
+        console.error(`Error processing batch for item ${item.product_id}:`, error);
+        // Continue with other items even if one fails
+      }
+    }
+  }
+
   static async updateOrderItem(itemId: string, updates: Partial<PurchaseOrderItem>): Promise<boolean> {
+    // First get the current item to compare quantities
+    const { data: currentItem, error: fetchError } = await this.supabase
+      .from('purchase_order_items')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching current item:', fetchError);
+      throw new Error('Failed to fetch current item');
+    }
+
     const { error } = await this.supabase
       .from('purchase_order_items')
       .update(updates)
@@ -174,10 +224,74 @@ export class PurchaseService {
       throw new Error('Failed to update purchase order item');
     }
 
+    // Update batch if quantity or batch_number changed
+    if (updates.quantity !== undefined || updates.batch_number !== undefined) {
+      await this.updateBatchForItem(currentItem, updates);
+    }
+
     return true;
   }
 
+  private static async updateBatchForItem(currentItem: PurchaseOrderItem, updates: Partial<PurchaseOrderItem>): Promise<void> {
+    try {
+      const newQuantity = updates.quantity !== undefined ? updates.quantity : currentItem.quantity;
+      const newBatchNumber = updates.batch_number !== undefined ? updates.batch_number : currentItem.batch_number;
+      const quantityDifference = newQuantity - currentItem.quantity;
+
+      if (!newBatchNumber || !currentItem.product_id) {
+        console.warn('Cannot update batch without batch_number or product_id');
+        return;
+      }
+
+      // If batch number changed, we need to handle both old and new batches
+      if (updates.batch_number && updates.batch_number !== currentItem.batch_number) {
+        // Remove quantity from old batch
+        const oldBatch = await BatchService.getBatchByNumber(currentItem.product_id, currentItem.batch_number || '');
+        if (oldBatch) {
+          await BatchService.updateBatchQuantity(oldBatch.id, -currentItem.quantity);
+        }
+
+        // Add quantity to new batch
+        const newBatch = await BatchService.getBatchByNumber(currentItem.product_id, newBatchNumber);
+        if (newBatch) {
+          await BatchService.updateBatchQuantity(newBatch.id, newQuantity);
+        } else {
+          // Create new batch if it doesn't exist
+          await BatchService.createBatch({
+            product_id: currentItem.product_id,
+            batch_number: newBatchNumber,
+            cost_price: currentItem.unit_price,
+            quantity_received: newQuantity,
+            quantity_remaining: newQuantity,
+            status: 'active'
+          });
+        }
+      } else if (quantityDifference !== 0) {
+        // Just quantity changed, update the same batch
+        const batch = await BatchService.getBatchByNumber(currentItem.product_id, newBatchNumber);
+        if (batch) {
+          await BatchService.updateBatchQuantity(batch.id, quantityDifference);
+        }
+      }
+    } catch (error) {
+      console.error('Error updating batch for item:', error);
+      // Don't throw error to avoid breaking the main update
+    }
+  }
+
   static async deleteOrderItem(itemId: string): Promise<boolean> {
+    // First get the item to reduce batch quantity
+    const { data: item, error: fetchError } = await this.supabase
+      .from('purchase_order_items')
+      .select('*')
+      .eq('id', itemId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching item for deletion:', fetchError);
+      throw new Error('Failed to fetch item for deletion');
+    }
+
     const { error } = await this.supabase
       .from('purchase_order_items')
       .delete()
@@ -186,6 +300,20 @@ export class PurchaseService {
     if (error) {
       console.error('Error deleting purchase order item:', error);
       throw new Error('Failed to delete purchase order item');
+    }
+
+    // Reduce batch quantity
+    if (item.batch_number && item.product_id) {
+      try {
+        const batch = await BatchService.getBatchByNumber(item.product_id, item.batch_number);
+        if (batch) {
+          await BatchService.updateBatchQuantity(batch.id, -item.quantity);
+          console.log(`Reduced batch ${item.batch_number} by ${item.quantity} units`);
+        }
+      } catch (error) {
+        console.error('Error reducing batch quantity:', error);
+        // Don't throw error to avoid breaking the deletion
+      }
     }
 
     return true;
