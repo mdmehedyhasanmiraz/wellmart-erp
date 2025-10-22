@@ -3,6 +3,39 @@ import { User, UserRole, Branch, CreateUserData, UpdateUserData, DASHBOARD_ROUTE
 import { userProfileCache } from './userProfileCache';
 import { ProfilePerformanceMonitor } from './profilePerformanceMonitor';
 
+// Types for Supabase query results
+interface UserWithBranch {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  branch_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  branches: {
+    id: string;
+    name: string;
+    code: string;
+  }[];
+}
+
+interface UserBasic {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  branch_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SupabaseQueryResult<T> {
+  data: T | null;
+  error: Error | null;
+}
+
 export class UserService {
   // Get user profile with role information - CACHE-FIRST PERFORMANCE VERSION
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
@@ -67,7 +100,8 @@ export class UserService {
         setTimeout(() => reject(new Error('Query timeout')), 2000)
       );
 
-      const { data, error } = await Promise.race([queryPromise, timeoutPromise]) as any;
+      const result = await Promise.race([queryPromise, timeoutPromise]);
+      const { data, error } = result as { data: any; error: any };
 
       const queryTime = performance.now() - startTime;
       
@@ -106,7 +140,8 @@ export class UserService {
         setTimeout(() => reject(new Error('Simple query timeout')), 1000)
       );
 
-      const { data: userData, error: userError } = await Promise.race([simpleQueryPromise, simpleTimeoutPromise]) as any;
+      const simpleResult = await Promise.race([simpleQueryPromise, simpleTimeoutPromise]);
+      const { data: userData, error: userError } = simpleResult as { data: any; error: any };
 
       const fallbackTime = performance.now() - fallbackStartTime;
       
