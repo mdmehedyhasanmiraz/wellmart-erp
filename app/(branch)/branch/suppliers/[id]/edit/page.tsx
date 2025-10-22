@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import BranchSidebar from '../../components/BranchSidebar';
+import BranchSidebar from '@/app/(branch)/branch/components/BranchSidebar';
 import { Supplier, UpdateSupplierData } from '@/types/user';
 import { SupplierService } from '@/lib/supplierService';
 import { useAuth } from '@/contexts/AuthContext';

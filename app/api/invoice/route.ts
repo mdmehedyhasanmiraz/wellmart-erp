@@ -342,7 +342,7 @@ async function generatePDFInvoice(
     { label: 'Invoice #:', value: invoiceNumber },
     { label: 'Date:', value: invoiceDate },
     { label: 'Status:', value: order.status.toUpperCase() },
-    // { label: 'Employee:', value: order.employees?.name || 'N/A' },
+    { label: 'MPO Code:', value: employee?.employee_code || 'N/A' },
   ];
 
   invoiceDetails.forEach((detail) => {

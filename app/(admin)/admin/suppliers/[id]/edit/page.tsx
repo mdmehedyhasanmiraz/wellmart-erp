@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import AdminSidebar from '../../components/AdminSidebar';
+import AdminSidebar from '@/app/(admin)/admin/components/AdminSidebar';
 import { Supplier, UpdateSupplierData } from '@/types/user';
 import { SupplierService } from '@/lib/supplierService';
 
