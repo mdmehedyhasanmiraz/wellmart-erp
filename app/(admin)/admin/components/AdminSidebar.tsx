@@ -143,15 +143,15 @@ export default function AdminSidebar() {
     },
     {
       title: 'Operations',
-      items: adminMenuItems.slice(1, 6), // Products, Inventory, Add Stock, Transfers, Sales, Purchases, Suppliers
+      items: adminMenuItems.slice(1, 7), // Products, Inventory, Add Stock, Transfers, Sales, Purchases, Suppliers
     },
     {
       title: 'Management',
-      items: adminMenuItems.slice(6, 11), // Parties, Employees, Designations, Allowances
+      items: adminMenuItems.slice(7, 14), // Parties, Employees, Designations, Allowances
     },
     {
       title: 'Configuration',
-      items: adminMenuItems.slice(11), // Branches, Users
+      items: adminMenuItems.slice(14), // Branches, Users
     },
   ];
 
