@@ -3,8 +3,8 @@ import type { UserProfile } from '@/types/user'
 
 class UserProfileCache {
   private cache = new Map<string, { profile: UserProfile; timestamp: number }>();
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-  private readonly MAX_CACHE_SIZE = 50; // Limit cache size to prevent memory issues
+  private readonly CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours - prioritize cache performance
+  private readonly MAX_CACHE_SIZE = 100; // Increased cache size
 
   set(userId: string, profile: UserProfile): void {
     // If cache is getting too large, remove oldest entries
@@ -62,6 +62,20 @@ class UserProfileCache {
       maxSize: this.MAX_CACHE_SIZE,
       duration: this.CACHE_DURATION
     };
+  }
+
+  // Force get from cache without expiration check (for performance priority)
+  getFromCacheOnly(userId: string): UserProfile | null {
+    const cached = this.cache.get(userId);
+    if (!cached) return null;
+    
+    // Return cached profile regardless of expiration for performance
+    return cached.profile;
+  }
+
+  // Check if profile exists in cache (regardless of expiration)
+  hasInCache(userId: string): boolean {
+    return this.cache.has(userId);
   }
 
   // Preload profile if not in cache

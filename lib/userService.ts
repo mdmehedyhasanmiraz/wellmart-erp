@@ -4,19 +4,20 @@ import { userProfileCache } from './userProfileCache';
 import { ProfilePerformanceMonitor } from './profilePerformanceMonitor';
 
 export class UserService {
-  // Get user profile with role information - OPTIMIZED VERSION
+  // Get user profile with role information - CACHE-FIRST PERFORMANCE VERSION
   static async getUserProfile(userId: string): Promise<UserProfile | null> {
     return ProfilePerformanceMonitor.measureAsync('getUserProfile', async () => {
-      // Check cache first
-      const cachedProfile = userProfileCache.get(userId);
+      // ALWAYS check cache first - prioritize performance over freshness
+      const cachedProfile = userProfileCache.getFromCacheOnly(userId);
       if (cachedProfile) {
-        console.log('User profile loaded from cache');
+        console.log('🚀 User profile loaded from cache (performance priority)');
         return cachedProfile;
       }
 
+      // Only fetch from database if absolutely no cache exists
+      console.log('⚠️ No cache found, fetching from database (slow operation)');
+      
       try {
-        console.log('Fetching user profile from database');
-        
         // Single optimized query with join to get user and branch data in one request
         const { data, error } = await supabase
           .from('users')
@@ -64,15 +65,43 @@ export class UserService {
           dashboard_route: DASHBOARD_ROUTES[data.role as UserRole]
         };
 
-        // Cache the profile for 5 minutes
+        // Cache the profile for 24 hours (performance priority)
         userProfileCache.set(userId, profile);
-        console.log('User profile fetched and cached successfully');
+        console.log('✅ User profile fetched from database and cached for 24 hours');
         
         return profile;
       } catch (error) {
         console.error('Error in getUserProfile:', error);
         return null;
       }
+    });
+  }
+
+  // Preload user profile into cache for better performance
+  static async preloadUserProfile(userId: string): Promise<UserProfile | null> {
+    return ProfilePerformanceMonitor.measureAsync('preloadUserProfile', async () => {
+      // Check if already in cache
+      const cachedProfile = userProfileCache.getFromCacheOnly(userId);
+      if (cachedProfile) {
+        console.log('🚀 Profile already cached, no preload needed');
+        return cachedProfile;
+      }
+
+      console.log('🔄 Preloading user profile into cache...');
+      return await this.getUserProfile(userId);
+    });
+  }
+
+  // Force refresh user profile from database (bypass cache)
+  static async refreshUserProfile(userId: string): Promise<UserProfile | null> {
+    return ProfilePerformanceMonitor.measureAsync('refreshUserProfile', async () => {
+      console.log('🔄 Force refreshing user profile from database...');
+      
+      // Clear cache first
+      userProfileCache.clear(userId);
+      
+      // Fetch fresh from database
+      return await this.getUserProfile(userId);
     });
   }
 

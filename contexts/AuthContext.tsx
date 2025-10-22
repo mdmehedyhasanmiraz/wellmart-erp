@@ -30,27 +30,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchUserProfile = async (userId: string): Promise<void> => {
     // Check if we already have a profile for this user
     if (userProfile && userProfile.id === userId) {
-      console.log('User profile already loaded, skipping fetch');
+      console.log('🚀 User profile already loaded, skipping fetch');
       return;
     }
 
-    // Check cache first
-    const cachedProfile = userProfileCache.get(userId);
+    // ALWAYS check cache first - prioritize performance over freshness
+    const cachedProfile = userProfileCache.getFromCacheOnly(userId);
     if (cachedProfile) {
-      console.log('User profile loaded from cache');
+      console.log('🚀 User profile loaded from cache (performance priority)');
       setUserProfile(cachedProfile);
       return;
     }
 
+    // Only fetch from database if absolutely no cache exists
+    console.log('⚠️ No cache found, fetching from database (slow operation)');
     setProfileLoading(true);
     
     try {
-      console.log('Fetching user profile from database');
       const profile = await UserService.getUserProfile(userId);
       
       if (profile) {
         setUserProfile(profile);
-        console.log('User profile fetched successfully');
+        console.log('✅ User profile fetched successfully');
       } else {
         console.log('No user profile found');
         setUserProfile(null);
