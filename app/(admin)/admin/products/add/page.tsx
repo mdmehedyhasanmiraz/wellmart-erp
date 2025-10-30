@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProductService } from '@/lib/productService';
+import { CreateProductData } from '@/types/user';
 
 interface ProductFormData {
   name: string;
@@ -75,7 +76,7 @@ export default function AddProductPage() {
     setLoading(true);
 
     try {
-      const created = await ProductService.createProduct(formData as any);
+      const created = await ProductService.createProduct(formData as unknown as CreateProductData);
       if (!created) throw new Error('Product not created');
       router.push('/admin/products');
     } catch (error) {

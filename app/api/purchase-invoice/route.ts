@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
         products
       );
       
-      console.log('Purchase invoice PDF generated successfully, size:', pdfBytes.length);
+      console.log('Purchase Bill PDF generated successfully, size:', pdfBytes.length);
 
       return new NextResponse(Buffer.from(pdfBytes), {
         headers: {
@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error generating purchase invoice:', error);
+    console.error('Error generating purchase bill:', error);
     return NextResponse.json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
@@ -301,7 +301,7 @@ async function generatePDFInvoice(
   const invoiceDate = new Date(order.created_at).toLocaleDateString();
 
   // Main invoice title
-  page.drawText('PURCHASE ORDER', {
+  page.drawText('BILL', {
     x: 50,
     y: yPos,
     size: 28,
@@ -441,7 +441,7 @@ async function generatePDFInvoice(
 
   let rightYPos = rightColumnY - 25;
   const invoiceDetails = [
-    { label: 'Order #:', value: invoiceNumber },
+    { label: 'Bill #:', value: invoiceNumber },
     { label: 'Date:', value: invoiceDate },
     { label: 'Status:', value: order.status.toUpperCase() },
     { label: 'Employee:', value: employee?.name || 'N/A' },

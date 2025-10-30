@@ -42,13 +42,21 @@ export async function GET(request: NextRequest) {
     // Load products and batches map for display
     const productIds = (items || []).map(i => i.product_id);
     const batchIds = (items || []).map(i => i.batch_id).filter(Boolean);
-    const [{ data: products = [] }, { data: batches = [] }] = await Promise.all([
-      productIds.length ? admin.from('products').select('id,name,sku').in('id', productIds) : Promise.resolve({ data: [] as any[] }),
-      batchIds.length ? admin.from('product_batches').select('id,batch_number,expiry_date').in('id', batchIds as string[]) : Promise.resolve({ data: [] as any[] }),
+    const [{ data: productsRaw }, { data: batchesRaw }] = await Promise.all([
+      productIds.length ? admin.from('products').select('id,name,sku').in('id', productIds) : Promise.resolve({ data: [] as unknown[] }),
+      batchIds.length ? admin.from('product_batches').select('id,batch_number,expiry_date').in('id', batchIds as string[]) : Promise.resolve({ data: [] as unknown[] }),
     ]);
 
-    const productMap = new Map<string, any>((products as any[]).map(p => [p.id, p]));
-    const batchMap = new Map<string, any>((batches as any[]).map(b => [b.id, b]));
+    type ProductRow = { id: string; name: string; sku?: string | null };
+    type BatchRow = { id: string; batch_number: string; expiry_date?: string | null };
+    type TransferItemRow = { product_id: string; batch_id?: string | null; quantity: number };
+
+    const products: ProductRow[] = (productsRaw ?? []) as unknown as ProductRow[];
+    const batches: BatchRow[] = (batchesRaw ?? []) as unknown as BatchRow[];
+    const itemRows: ReadonlyArray<TransferItemRow> = (items ?? []) as unknown as TransferItemRow[];
+
+    const productMap = new Map<string, ProductRow>(products.map(p => [p.id, p]));
+    const batchMap = new Map<string, BatchRow>(batches.map(b => [b.id, b]));
 
     // Build PDF
     const pdfDoc = await PDFDocument.create();
@@ -111,7 +119,7 @@ export async function GET(request: NextRequest) {
     });
 
     let rowY = y - 24;
-    (items || []).forEach((it) => {
+    itemRows.forEach((it) => {
       page.drawRectangle({ x: 50, y: rowY - 15, width: width - 100, height: 15, color: rgb(0.98, 0.98, 0.98) });
       const prod = productMap.get(it.product_id);
       const batch = it.batch_id ? batchMap.get(it.batch_id) : null;

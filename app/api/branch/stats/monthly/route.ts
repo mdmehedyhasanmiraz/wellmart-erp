@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-function key(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
+function key(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; }
 
 export async function GET(req: NextRequest) {
   try {
@@ -32,13 +32,19 @@ export async function GET(req: NextRequest) {
       months.push({ month: k, sales: 0, collection: 0 });
     }
 
-    (orders || []).forEach((r: any) => {
+    type OrderRow = { grand_total: number | null; created_at: string };
+    type PaymentRow = { amount: number | null; paid_at: string };
+
+    const orderRows: ReadonlyArray<OrderRow> = (orders ?? []) as OrderRow[];
+    const paymentRows: ReadonlyArray<PaymentRow> = (pays ?? []) as PaymentRow[];
+
+    orderRows.forEach((r) => {
       const k = key(new Date(r.created_at));
-      const i = idx.get(k); if (i !== undefined) months[i].sales += Number(r.grand_total || 0);
+      const i = idx.get(k); if (i !== undefined) months[i].sales += Number(r.grand_total ?? 0);
     });
-    (pays || []).forEach((r: any) => {
+    paymentRows.forEach((r) => {
       const k = key(new Date(r.paid_at));
-      const i = idx.get(k); if (i !== undefined) months[i].collection += Number(r.amount || 0);
+      const i = idx.get(k); if (i !== undefined) months[i].collection += Number(r.amount ?? 0);
     });
 
     return NextResponse.json({ months });

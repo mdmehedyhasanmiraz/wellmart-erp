@@ -15,12 +15,14 @@ export async function GET(req: NextRequest) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-    const sum = async (table: string, column: string, fromCol = 'created_at', from?: string) => {
+    const sum = async (table: string, column: string, fromCol = 'created_at', from?: string): Promise<number> => {
       let query = db.from(table).select(`${column}`).gt(column, 0);
       if (from) query = query.gte(fromCol, from);
       const { data, error } = await query;
       if (error || !data) return 0;
-      return (data as any[]).reduce((acc, row) => acc + Number(row[column] || 0), 0);
+      type SumRow = Record<string, number | null>;
+      const rows: ReadonlyArray<SumRow> = data as SumRow[];
+      return rows.reduce((acc, row) => acc + Number((row[column] ?? 0)), 0);
     };
 
     const totalSales = await sum('sales_orders', 'grand_total');

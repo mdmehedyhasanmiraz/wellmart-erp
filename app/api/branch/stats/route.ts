@@ -16,21 +16,25 @@ export async function GET(req: NextRequest) {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 
-    const sumOrders = async (column: string, from?: string) => {
+    const sumOrders = async (column: string, from?: string): Promise<number> => {
       let q = db.from('sales_orders').select(column).eq('branch_id', branchId);
       if (from) q = q.gte('created_at', from);
       const { data, error } = await q;
       if (error || !data) return 0;
-      return (data as any[]).reduce((acc, r) => acc + Number(r[column] || 0), 0);
+      type SumRow = Record<string, number | null>;
+      const rows: ReadonlyArray<SumRow> = data as unknown as SumRow[];
+      return rows.reduce((acc, r) => acc + Number((r[column] ?? 0)), 0);
     };
 
-    const sumPayments = async (from?: string) => {
+    const sumPayments = async (from?: string): Promise<number> => {
       // join payments -> sales_orders to filter by branch
       let q = db.from('sales_payments').select('amount, paid_at, sales_orders!inner(branch_id)').eq('sales_orders.branch_id', branchId);
       if (from) q = q.gte('paid_at', from);
       const { data, error } = await q;
       if (error || !data) return 0;
-      return (data as any[]).reduce((acc, r) => acc + Number(r.amount || 0), 0);
+      type PaymentRow = { amount: number | null };
+      const rows: ReadonlyArray<PaymentRow> = data as unknown as PaymentRow[];
+      return rows.reduce((acc, r) => acc + Number((r.amount ?? 0)), 0);
     };
 
     const totalSales = await sumOrders('grand_total');
