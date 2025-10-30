@@ -1,24 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../../components/AdminSidebar';
 import { PartyService } from '@/lib/partyService';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { BranchService } from '@/lib/branchService';
 
 export default function NewPartyPage() {
   const router = useRouter();
+  const { userProfile } = useAuth();
+  const [branchCode, setBranchCode] = useState<string>('');
   const [form, setForm] = useState({
-    name: '', party_code: '', contact_person: '', phone: '', email: '', shop_no: '',
-    address_line1: '', address_line2: '', city: '', state: '', postal_code: '', country: '',
+    name: '', party_code: '', contact_person: '', phone: '', email: '', address_line1: '',
   });
   const [saving, setSaving] = useState(false);
 
   const setField = (k: string, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
 
+  useEffect(() => {
+    const init = async () => {
+      try {
+        if (userProfile?.branch_id) {
+          const branch = await BranchService.getById(userProfile.branch_id);
+          const codePrefix = branch?.code || '';
+          setBranchCode(codePrefix);
+          const parties = await PartyService.list();
+          const nextNum = parties
+            .map(p => p.party_code)
+            .filter((c): c is string => !!c && c.startsWith(codePrefix))
+            .map(c => parseInt(c.slice(codePrefix.length) || '0', 10))
+            .reduce((max, n) => (isNaN(n) ? max : Math.max(max, n)), 0) + 1;
+          const nextCode = codePrefix + String(nextNum).padStart(4, '0');
+          setForm(prev => ({ ...prev, party_code: nextCode }));
+        }
+      } catch (e) {
+        // fallback: leave code empty
+      }
+    };
+    init();
+  }, [userProfile?.branch_id]);
+
   const save = async () => {
     if (!form.name) return alert('Name is required');
     setSaving(true);
-    const created = await PartyService.create(form);
+    const created = await PartyService.create({
+      name: form.name,
+      party_code: form.party_code,
+      contact_person: form.contact_person,
+      phone: form.phone,
+      email: form.email,
+      address_line1: form.address_line1,
+      branch_id: userProfile?.branch_id,
+    });
     setSaving(false);
     if (created) router.push('/admin/parties');
     else alert('Failed to create party');
@@ -43,9 +77,11 @@ export default function NewPartyPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
             </div>
             <div>
-              <label className="block text-sm text-gray-600 mb-2">Party Code</label>
+              <label className="block text-sm text-gray-600 mb-2">Code</label>
               <input value={form.party_code} onChange={(e) => setField('party_code', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                readOnly
+                placeholder={branchCode ? `${branchCode}0001` : 'Auto' }
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700" />
             </div>
             <div>
               <label className="block text-sm text-gray-600 mb-2">Contact Person</label>
@@ -62,40 +98,10 @@ export default function NewPartyPage() {
               <input value={form.email} onChange={(e) => setField('email', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
             </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-2">Shop No</label>
-              <input value={form.shop_no} onChange={(e) => setField('shop_no', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
-            </div>
             <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">Address Line 1</label>
+              <div className="md:col-span-3">
+                <label className="block text-sm text-gray-600 mb-2">Address</label>
                 <input value={form.address_line1} onChange={(e) => setField('address_line1', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">Address Line 2</label>
-                <input value={form.address_line2} onChange={(e) => setField('address_line2', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">City</label>
-                <input value={form.city} onChange={(e) => setField('city', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">State</label>
-                <input value={form.state} onChange={(e) => setField('state', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">Postal Code</label>
-                <input value={form.postal_code} onChange={(e) => setField('postal_code', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-2">Country</label>
-                <input value={form.country} onChange={(e) => setField('country', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus-border-transparent" />
               </div>
             </div>

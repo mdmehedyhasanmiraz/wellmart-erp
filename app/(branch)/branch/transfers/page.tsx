@@ -14,6 +14,7 @@ export default function BranchTransfersPage() {
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<BranchTransfer[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -38,6 +39,28 @@ export default function BranchTransfersPage() {
       active = false;
     };
   }, [canQuery, branchId]);
+
+  const markCompleted = async (transferId: string) => {
+    if (!confirm('Mark this transfer as completed?')) return;
+    setCompletingId(transferId);
+    try {
+      const resp = await fetch('/api/transfers/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transferId, actorId: userProfile?.id, actorBranchId: branchId }),
+      });
+      if (resp.ok) {
+        setRows(prev => prev.map(r => r.id === transferId ? { ...r, status: 'completed' } as BranchTransfer : r));
+      } else {
+        const data = await resp.json().catch(() => ({}));
+        alert(data?.error || 'Failed to complete transfer');
+      }
+    } catch (e) {
+      alert('Failed to complete transfer');
+    } finally {
+      setCompletingId(null);
+    }
+  };
 
   const getBranchName = (branchId: string) => {
     return branches.find(b => b.id === branchId)?.name || branchId;
@@ -83,6 +106,7 @@ export default function BranchTransfersPage() {
                   <th className="py-3 pr-4 font-medium">Status</th>
                   <th className="py-3 pr-4 font-medium">Created</th>
                   <th className="py-3 pr-4 font-medium">Note</th>
+                  <th className="py-3 pr-4 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,6 +127,23 @@ export default function BranchTransfersPage() {
                       </td>
                       <td className="py-3 pr-4">{new Date(t.created_at || '').toLocaleDateString()}</td>
                       <td className="py-3 pr-4 text-gray-600">{t.note || '—'}</td>
+                      <td className="py-3 pr-4 space-x-2">
+                        <button
+                          onClick={() => window.open(`/api/transfer-invoice?transferId=${t.id}`, '_blank')}
+                          className="px-3 py-1.5 rounded bg-emerald-600 text-white hover:bg-emerald-700 text-xs"
+                        >
+                          See invoice
+                        </button>
+                        {branchId === t.to_branch_id && t.status !== 'completed' && (
+                          <button
+                            onClick={() => markCompleted(t.id)}
+                            disabled={completingId === t.id}
+                            className={`px-3 py-1.5 rounded text-white text-xs ${completingId === t.id ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'}`}
+                          >
+                            {completingId === t.id ? 'Completing…' : 'Mark completed'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}

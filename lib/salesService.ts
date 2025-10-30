@@ -36,7 +36,6 @@ export class SalesService {
       unit_price: i.unit_price,
       discount_amount: i.discount_amount ?? 0,
       discount_percent: i.discount_percent ?? 0,
-      batch_id: i.batch_id || null,
       total: 0,
     }));
     // Compute totals client-side for now

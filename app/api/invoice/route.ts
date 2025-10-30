@@ -1108,83 +1108,36 @@ async function generatePDFInvoice(
     addNewPage();
   }
   
-  // Left signature area - Created By
-  const leftSigX = 50;
-  const rightSigX = width / 2 + 25;
-  const sigWidth = (width - 100) / 2 - 25;
-  const sigHeight = 60;
-  
-  // Draw signature box for Created By
-  page.drawRectangle({
-    x: leftSigX,
-    y: yPos - sigHeight,
-    width: sigWidth,
-    height: sigHeight,
-    borderColor: lightGray,
-    borderWidth: 1,
-  });
-  
-  // Created By label
-  page.drawText('Created By:', {
-    x: leftSigX + 5,
-    y: yPos - 15,
-    size: 10,
-    font: boldFont,
-    color: textColor,
-  });
-  
-  // Signature line
-  page.drawLine({
-    start: { x: leftSigX + 5, y: yPos - 35 },
-    end: { x: leftSigX + sigWidth - 5, y: yPos - 35 },
-    thickness: 1,
-    color: textColor,
-  });
-  
-  // Date line
-  page.drawText('Date: _______________', {
-    x: leftSigX + 5,
-    y: yPos - 50,
-    size: 9,
-    font: font,
-    color: textColor,
-  });
-  
-  // Right signature area - Authorized By
-  page.drawRectangle({
-    x: rightSigX,
-    y: yPos - sigHeight,
-    width: sigWidth,
-    height: sigHeight,
-    borderColor: lightGray,
-    borderWidth: 1,
-  });
-  
-  // Authorized By label
-  page.drawText('Authorized By:', {
-    x: rightSigX + 5,
-    y: yPos - 15,
-    size: 10,
-    font: boldFont,
-    color: textColor,
-  });
-  
-  // Signature line
-  page.drawLine({
-    start: { x: rightSigX + 5, y: yPos - 35 },
-    end: { x: rightSigX + sigWidth - 5, y: yPos - 35 },
-    thickness: 1,
-    color: textColor,
-  });
-  
-  // Date line
-  page.drawText('Date: _______________', {
-    x: rightSigX + 5,
-    y: yPos - 50,
-    size: 9,
-    font: font,
-    color: textColor,
-  });
+  // Three signature columns: Prepared by, Authorized by, Customers Signature
+  const sigTopY = yPos - 20;
+  const sigLabelY = sigTopY - 18;
+  const marginX = 50;
+  const totalSigWidth = width - marginX * 2;
+  const colWidth = totalSigWidth / 3;
+  const linePadding = 10;
+
+  const labels = ['Prepared by', 'Authorized by', 'Customers Signature'];
+
+  for (let i = 0; i < 3; i++) {
+    const colX = marginX + i * colWidth;
+    // Line
+    page.drawLine({
+      start: { x: colX + linePadding, y: sigTopY },
+      end: { x: colX + colWidth - linePadding, y: sigTopY },
+      thickness: 1,
+      color: textColor,
+    });
+    // Label centered under the line
+    const label = labels[i];
+    const labelX = colX + linePadding; // approximate left; equal width columns keep lines equal
+    page.drawText(label, {
+      x: labelX,
+      y: sigLabelY,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+  }
 
   // Footer
   // yPos = 50;

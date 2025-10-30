@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import AdminSidebar from '../../components/AdminSidebar';
 import { Branch, Product, PurchaseOrder, PurchaseOrderItem, Employee } from '@/types/user';
 import { BranchService } from '@/lib/branchService';
@@ -42,6 +43,9 @@ export default function NewPurchasePage() {
   const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploadingImages, setUploadingImages] = useState<boolean>(false);
+  const [productQueries, setProductQueries] = useState<string[]>(['']);
+  const [productTotals, setProductTotals] = useState<Record<string, number>>({});
+  const [productAnchors, setProductAnchors] = useState<Array<{ left: number; top: number; width: number; height: number } | null>>([null]);
 
   useEffect(() => {
     const load = async () => {
@@ -113,6 +117,28 @@ export default function NewPurchasePage() {
   const addLine = () => setLines((prev) => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
   const removeLine = (idx: number) => setLines((prev) => prev.filter((_, i) => i !== idx));
 
+  useEffect(() => {
+    // keep productQueries in sync with lines length
+    setProductQueries((prev) => {
+      const next = [...prev];
+      if (next.length < lines.length) {
+        while (next.length < lines.length) next.push('');
+      } else if (next.length > lines.length) {
+        next.length = lines.length;
+      }
+      return next;
+    });
+    setProductAnchors((prev) => {
+      const next = [...prev];
+      if (next.length < lines.length) {
+        while (next.length < lines.length) next.push(null);
+      } else if (next.length > lines.length) {
+        next.length = lines.length;
+      }
+      return next;
+    });
+  }, [lines.length]);
+
   const loadBatchStocks = async (productId: string) => {
     if (!productId || !branchId) return;
     try {
@@ -130,7 +156,34 @@ export default function NewPurchasePage() {
       unit_price: product?.pp || 0, // Use purchase price (pp) instead of trade price (tp)
       batch_number: ''
     });
+    setProductQueries((prev) => prev.map((q, i) => (i === idx ? '' : q)));
+    setProductAnchors((prev) => prev.map((a, i) => (i === idx ? null : a)));
+    // prefetch total stock for display next time
+    if (branchId && productId && !productTotals[productId]) {
+      try {
+        const stocks = await InventoryService.getBatchStocksByBranch(productId, branchId);
+        const total = (stocks || []).reduce((s, r) => s + (r.quantity || 0), 0);
+        setProductTotals((prev) => ({ ...prev, [productId]: total }));
+      } catch {}
+    }
     await loadBatchStocks(productId);
+  };
+
+  const ensureTotalsFor = async (ids: string[]) => {
+    const missing = ids.filter((id) => productTotals[id] === undefined);
+    if (!branchId || missing.length === 0) return;
+    try {
+      const results = await Promise.all(missing.map(async (id) => {
+        const stocks = await InventoryService.getBatchStocksByBranch(id, branchId);
+        const total = (stocks || []).reduce((s, r) => s + (r.quantity || 0), 0);
+        return { id, total } as const;
+      }));
+      setProductTotals((prev) => {
+        const next = { ...prev };
+        results.forEach(({ id, total }) => { next[id] = total; });
+        return next;
+      });
+    } catch {}
   };
 
   const handleImageUpload = async (files: FileList | null) => {
@@ -286,7 +339,7 @@ export default function NewPurchasePage() {
               <h2 className="font-semibold">Items</h2>
               <button onClick={addLine} className="px-3 py-1.5 rounded bg-gray-800 text-white text-sm">Add Line</button>
             </div>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto overflow-y-visible">
               <table className="min-w-full">
                 <thead className="bg-gray-50">
                   <tr>
@@ -303,11 +356,46 @@ export default function NewPurchasePage() {
                   {lines.map((l, idx) => (
                     <tr key={idx}>
                       <td className="px-3 py-2">
-                        <select value={l.product_id} onChange={(e) => handleProductChange(idx, e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                          <option value="">Select product</option>
-                          {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                        </select>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={l.product_id ? (products.find(p => p.id === l.product_id)?.name || '') : productQueries[idx]}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setProductQueries((prev) => prev.map((q, i) => (i === idx ? val : q)));
+                              if (l.product_id) setLine(idx, { product_id: '', unit_price: 0 });
+                              const rect = (e.target as HTMLInputElement).getBoundingClientRect();
+                              setProductAnchors((prev) => prev.map((a, i) => (i === idx ? { left: rect.left + window.scrollX, top: rect.bottom + window.scrollY, width: rect.width, height: rect.height } : a)));
+                            }}
+                            placeholder="Type product name"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          />
+                          {(!l.product_id && productQueries[idx].trim().length > 0 && productAnchors[idx]) && createPortal(
+                            <div
+                              className="z-[1000] bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
+                              style={{ position: 'fixed', top: productAnchors[idx]!.top, left: productAnchors[idx]!.left, width: productAnchors[idx]!.width }}
+                            >
+                              {(() => {
+                                const q = productQueries[idx].toLowerCase();
+                                const list = products.filter(p => p.name.toLowerCase().includes(q)).slice(0, 10);
+                                ensureTotalsFor(list.map(l => l.id));
+                                if (list.length === 0) return <div className="px-3 py-2 text-sm text-gray-500">No products</div>;
+                                return list.map((p) => (
+                                  <button
+                                    type="button"
+                                    key={p.id}
+                                    onClick={() => handleProductChange(idx, p.id)}
+                                    className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between"
+                                  >
+                                    <span className="text-gray-900 text-sm">{p.name}</span>
+                                    <span className="text-xs text-gray-500 ml-3">Stock: {productTotals[p.id] !== undefined ? productTotals[p.id] : '…'}</span>
+                                  </button>
+                                ));
+                              })()}
+                            </div>,
+                            document.body
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2">
                         <input 

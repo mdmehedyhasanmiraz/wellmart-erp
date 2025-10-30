@@ -866,6 +866,40 @@ async function generatePDFInvoice(
     });
   }
 
+  // Signature Section (Purchased by, Accountant’s Signature, Authorized by)
+  yPos -= 60;
+  // Ensure space for signatures; add page if needed
+  if (checkPageSpace(80)) {
+    addNewPage();
+  }
+
+  const sigTopY = yPos - 20;
+  const sigLabelY = sigTopY - 18;
+  const marginX = 50;
+  const totalSigWidth = width - marginX * 2;
+  const colWidth = totalSigWidth / 3;
+  const linePadding = 10;
+  const sigLabels = ['Purchased by', 'Accountant’s Signature', 'Authorized by'];
+
+  for (let i = 0; i < 3; i++) {
+    const colX = marginX + i * colWidth;
+    // Line
+    page.drawLine({
+      start: { x: colX + linePadding, y: sigTopY },
+      end: { x: colX + colWidth - linePadding, y: sigTopY },
+      thickness: 1,
+      color: textColor,
+    });
+    // Label under line
+    page.drawText(sigLabels[i], {
+      x: colX + linePadding,
+      y: sigLabelY,
+      size: 10,
+      font: boldFont,
+      color: textColor,
+    });
+  }
+
   // Return PDF bytes
   return await pdfDoc.save();
 }

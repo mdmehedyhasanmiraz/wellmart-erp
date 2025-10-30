@@ -248,12 +248,22 @@ export class InventoryService {
   }
 
   static async completeTransfer(transferId: string): Promise<boolean> {
-    const { error } = await supabase.rpc('complete_branch_transfer', { p_transfer_id: transferId, p_actor: null });
-    if (error) {
-      console.error('Error completing transfer:', error);
+    try {
+      const resp = await fetch('/api/transfers/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transferId }),
+      });
+      if (!resp.ok) {
+        const data = await resp.json().catch(() => ({}));
+        console.error('Error completing transfer via API:', data);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error('Error completing transfer (network):', error);
       return false;
     }
-    return true;
   }
 
   // Batch Management

@@ -113,6 +113,9 @@ export default function NewTransferPage() {
       });
       
       if (transfer) {
+        try {
+          window.open(`/api/transfer-invoice?transferId=${transfer.id}`, '_blank');
+        } catch {}
         router.push('/admin/transfers');
       } else {
         alert('Failed to create transfer');

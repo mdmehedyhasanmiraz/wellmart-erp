@@ -3,10 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BranchSidebar from '@/app/(branch)/branch/components/BranchSidebar';
-import { Party, Branch, Employee } from '@/types/user';
+import { Party, Branch } from '@/types/user';
 import { PartyService } from '@/lib/partyService';
 import { BranchService } from '@/lib/branchService';
-import { EmployeeService } from '@/lib/employeeService';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function BranchEditPartyPage() {
@@ -18,7 +17,6 @@ export default function BranchEditPartyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
   const [party, setParty] = useState<Party | null>(null);
 
   const [form, setForm] = useState({
@@ -27,18 +25,7 @@ export default function BranchEditPartyPage() {
     contact_person: '',
     phone: '',
     email: '',
-    shop_no: '',
     address_line1: '',
-    address_line2: '',
-    city: '',
-    state: '',
-    postal_code: '',
-    country: 'Bangladesh',
-    latitude: '',
-    longitude: '',
-    branch_id: '',
-    employee_id: '',
-    is_active: true,
   });
 
   useEffect(() => {
@@ -46,10 +33,9 @@ export default function BranchEditPartyPage() {
       if (!partyId || !userProfile?.branch_id) return;
       
       try {
-        const [partyData, branchesData, employeesData] = await Promise.all([
+        const [partyData, branchesData] = await Promise.all([
           PartyService.getById(partyId),
           BranchService.getAll(),
-          EmployeeService.getAll(),
         ]);
 
         // Check if party belongs to user's branch or is unassigned
@@ -61,7 +47,6 @@ export default function BranchEditPartyPage() {
 
         setParty(partyData);
         setBranches(branchesData);
-        setEmployees(employeesData.filter(emp => emp.branch_id === userProfile.branch_id));
 
         if (partyData) {
           setForm({
@@ -70,18 +55,7 @@ export default function BranchEditPartyPage() {
             contact_person: partyData.contact_person || '',
             phone: partyData.phone || '',
             email: partyData.email || '',
-            shop_no: partyData.shop_no || '',
             address_line1: partyData.address_line1 || '',
-            address_line2: partyData.address_line2 || '',
-            city: partyData.city || '',
-            state: partyData.state || '',
-            postal_code: partyData.postal_code || '',
-            country: partyData.country || 'Bangladesh',
-            latitude: partyData.latitude?.toString() || '',
-            longitude: partyData.longitude?.toString() || '',
-            branch_id: partyData.branch_id || '',
-            employee_id: partyData.employee_id || '',
-            is_active: partyData.is_active,
           });
         }
       } catch (error) {
@@ -105,11 +79,12 @@ export default function BranchEditPartyPage() {
     setSaving(true);
     try {
       const partyData = {
-        ...form,
-        latitude: form.latitude ? parseFloat(form.latitude) : undefined,
-        longitude: form.longitude ? parseFloat(form.longitude) : undefined,
-        branch_id: form.branch_id || undefined,
-        employee_id: form.employee_id || undefined,
+        name: form.name,
+        party_code: form.party_code,
+        contact_person: form.contact_person,
+        phone: form.phone,
+        email: form.email,
+        address_line1: form.address_line1,
       };
 
       const success = await PartyService.update(partyId, partyData);
@@ -182,7 +157,7 @@ export default function BranchEditPartyPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold mb-4">Basic Information</h2>
+            <h2 className="text-lg font-semibold mb-4">Party</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Party Name *</label>
@@ -195,12 +170,12 @@ export default function BranchEditPartyPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Party Code</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Code</label>
                 <input
                   type="text"
                   value={form.party_code}
-                  onChange={(e) => handleChange('party_code', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
                 />
               </div>
               <div>
@@ -230,135 +205,18 @@ export default function BranchEditPartyPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Shop No</label>
-                <input
-                  type="text"
-                  value={form.shop_no}
-                  onChange={(e) => handleChange('shop_no', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={form.is_active ? 'active' : 'inactive'}
-                  onChange={(e) => handleChange('is_active', e.target.value === 'active')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
             </div>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold mb-4">Address Information</h2>
+            <h2 className="text-lg font-semibold mb-4">Address</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 1</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Address</label>
                 <input
                   type="text"
                   value={form.address_line1}
                   onChange={(e) => handleChange('address_line1', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Address Line 2</label>
-                <input
-                  type="text"
-                  value={form.address_line2}
-                  onChange={(e) => handleChange('address_line2', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                <input
-                  type="text"
-                  value={form.city}
-                  onChange={(e) => handleChange('city', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
-                <input
-                  type="text"
-                  value={form.state}
-                  onChange={(e) => handleChange('state', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
-                <input
-                  type="text"
-                  value={form.postal_code}
-                  onChange={(e) => handleChange('postal_code', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
-                <input
-                  type="text"
-                  value={form.country}
-                  onChange={(e) => handleChange('country', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold mb-4">Location & Assignment</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-                <select
-                  value={form.branch_id}
-                  onChange={(e) => handleChange('branch_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">No Branch Assignment</option>
-                  {branches.map(branch => (
-                    <option key={branch.id} value={branch.id}>{branch.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Employee</label>
-                <select
-                  value={form.employee_id}
-                  onChange={(e) => handleChange('employee_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                >
-                  <option value="">No Employee Assignment</option>
-                  {employees.map(employee => (
-                    <option key={employee.id} value={employee.id}>{employee.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Latitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.latitude}
-                  onChange={(e) => handleChange('latitude', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Longitude</label>
-                <input
-                  type="number"
-                  step="any"
-                  value={form.longitude}
-                  onChange={(e) => handleChange('longitude', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>

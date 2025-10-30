@@ -73,6 +73,16 @@ const branchMenuItems = [
     ),
   },
   {
+    name: 'Collection',
+    href: '/branch/collections',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-3.866 0-7 1.79-7 4s3.134 4 7 4 7-1.79 7-4-3.134-4-7-4z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12V8c0-2.21 3.134-4 7-4s7 1.79 7 4v4" />
+      </svg>
+    ),
+  },
+  {
     name: 'Parties',
     href: '/branch/parties',
     icon: (
@@ -186,7 +196,11 @@ export default function BranchSidebar() {
   const filteredMenuItems = branchMenuItems.filter(item => {
     // Show "Add Stock" only for MAIN branch users
     if (item.name === 'Add Stock') {
-      return branch?.code === 'MAIN';
+      return branch?.code === 'DHK';
+    }
+    // Show "Purchases" only for Dhaka (code DHK)
+    if (item.name === 'Purchases') {
+      return branch?.code === 'DHK';
     }
     return true;
   });
@@ -199,7 +213,14 @@ export default function BranchSidebar() {
     },
     {
       title: 'Operations',
-      items: filteredMenuItems.slice(1, filteredMenuItems.findIndex(item => item.name === 'Purchases') + 1), // Products, Inventory, Add Stock (if MAIN), Transfers, Sales, Purchases
+      items: (() => {
+        const start = 1; // after Dashboard
+        const idxCollection = filteredMenuItems.findIndex(item => item.name === 'Collection');
+        const idxPurchases = filteredMenuItems.findIndex(item => item.name === 'Purchases');
+        const lastIdx = Math.max(idxCollection, idxPurchases, filteredMenuItems.findIndex(item => item.name === 'Sales'));
+        const end = lastIdx !== -1 ? lastIdx + 1 : start;
+        return filteredMenuItems.slice(start, end);
+      })(),
     },
     {
       title: 'Management',

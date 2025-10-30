@@ -60,6 +60,11 @@ const adminMenuItems = [
     icon: <Receipt className="w-5 h-5" />,
   },
   {
+    name: 'Collection',
+    href: '/admin/collections',
+    icon: <Banknote className="w-5 h-5" />,
+  },
+  {
     name: 'Parties',
     href: '/admin/parties',
     icon: <Users className="w-5 h-5" />,
@@ -143,15 +148,15 @@ export default function AdminSidebar() {
     },
     {
       title: 'Operations',
-      items: adminMenuItems.slice(1, 7), // Products, Inventory, Add Stock, Transfers, Sales, Purchases, Suppliers
+      items: adminMenuItems.slice(1, 8), // Products, Inventory, Add Stock, Transfers, Sales, Purchases, Suppliers
     },
     {
       title: 'Management',
-      items: adminMenuItems.slice(7, 14), // Parties, Employees, Designations, Allowances
+      items: adminMenuItems.slice(8, 15), // Parties, Employees, Designations, Allowances
     },
     {
       title: 'Configuration',
-      items: adminMenuItems.slice(14), // Branches, Users
+      items: adminMenuItems.slice(15), // Branches, Users
     },
   ];
 

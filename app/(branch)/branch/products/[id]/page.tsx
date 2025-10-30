@@ -4,19 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductService } from '@/lib/productService';
-import { InventoryService } from '@/lib/inventoryService';
 import { BranchService } from '@/lib/branchService';
 import { ProductWithDetails, Branch } from '@/types/user';
-
-type BatchRow = {
-  id: string;
-  batch_number: string;
-  quantity_received: number;
-  quantity_remaining: number;
-  manufacturing_date: string | null;
-  expiry_date: string | null;
-  status: 'active' | 'expired' | 'recalled' | 'consumed';
-}
 
 export default function BranchProductDetailsPage() {
   const router = useRouter();
@@ -26,8 +15,6 @@ export default function BranchProductDetailsPage() {
   
   const [loading, setLoading] = useState(true);
   const [product, setProduct] = useState<ProductWithDetails | null>(null);
-  const [batches, setBatches] = useState<BatchRow[]>([]);
-  const [totalStock, setTotalStock] = useState<number>(0);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [isMainBranch, setIsMainBranch] = useState(false);
 
@@ -40,31 +27,7 @@ export default function BranchProductDetailsPage() {
       
       setProduct(productData);
       setBranch(branchData);
-      setIsMainBranch(branchData?.code === 'MAIN');
-      
-      const [batchRows, total] = await Promise.all([
-        InventoryService.getBatchesByProduct(productId),
-        InventoryService.getTotalStockForProduct(productId),
-      ]);
-      
-      setBatches((batchRows || []).map((b: {
-        id?: string;
-        batch_number: string;
-        quantity_received: number;
-        quantity_remaining?: number;
-        manufacturing_date?: string | null;
-        expiry_date?: string | null;
-        status?: 'active' | 'expired' | 'recalled' | 'consumed';
-      }) => ({
-        id: b.id,
-        batch_number: b.batch_number,
-        quantity_received: b.quantity_received,
-        quantity_remaining: b.quantity_remaining,
-        manufacturing_date: b.manufacturing_date ?? null,
-        expiry_date: b.expiry_date ?? null,
-        status: b.status,
-      })) as BatchRow[]);
-      setTotalStock(total);
+      setIsMainBranch(branchData?.code === 'DHK');
     } catch (error) {
       console.error('Error fetching product:', error);
       alert('Failed to load product data');
@@ -82,7 +45,7 @@ export default function BranchProductDetailsPage() {
 
   const handleDelete = async () => {
     if (!isMainBranch) {
-      alert('Only MAIN branch users can delete products');
+      alert('Only DHK branch users can delete products');
       return;
     }
     
@@ -221,59 +184,13 @@ export default function BranchProductDetailsPage() {
                 <p className="text-gray-900">{product.pack_size || 'N/A'}</p>
               </div>
             </div>
-            
-            {product.description && (
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-500 mb-2">Description</label>
-                <p className="text-gray-900 whitespace-pre-wrap">{product.description}</p>
-              </div>
-            )}
           </div>
 
-          {/* Pricing Information */}
+          {/* Weight */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Pricing Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Trade Price (TP)</label>
-                <p className="text-2xl font-bold text-blue-600">{ProductService.formatPrice(product.tp)}</p>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Maximum Retail Price (MRP)</label>
-                <p className="text-2xl font-bold text-green-600">{ProductService.formatPrice(product.mrp)}</p>
-              </div>
-              
-              {/* Purchase price hidden for all branches */}
-            </div>
-          </div>
-
-          {/* Inventory Information */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Inventory Information</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-6">Weight</h2>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Current Stock</label>
-                <p className={`text-2xl font-bold ${
-                  totalStock === 0 ? 'text-red-600' :
-                  totalStock < 100 ? 'text-yellow-600' :
-                  'text-green-600'
-                }`}>
-                  {totalStock}
-                </p>
-                <p className={`text-sm ${
-                  totalStock === 0 ? 'text-red-500' :
-                  totalStock < 100 ? 'text-yellow-500' :
-                  'text-green-500'
-                }`}>
-                  {totalStock === 0 ? 'Out of Stock' :
-                   totalStock < 100 ? 'Low Stock' :
-                   'In Stock'}
-                </p>
-              </div>
-              
               {product.weight && (
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Weight</label>
@@ -283,60 +200,6 @@ export default function BranchProductDetailsPage() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Batches */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Batches</h2>
-              {isMainBranch && (
-                <button
-                  onClick={() => router.push(`/branch/products/${productId}/edit`)}
-                  className="px-3 py-1.5 text-sm bg-gray-800 text-white rounded hover:bg-gray-900"
-                >
-                  Manage Batches
-                </button>
-              )}
-            </div>
-            {batches.length === 0 ? (
-              <div className="text-gray-500">No batches for this product.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Remaining</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MFG</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXP</th>
-                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {batches.map((b) => (
-                      <tr key={b.id}>
-                        <td className="px-4 py-2 text-sm text-gray-900">{b.batch_number}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{b.quantity_received}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{b.quantity_remaining}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{b.manufacturing_date ? new Date(b.manufacturing_date).toLocaleDateString() : '—'}</td>
-                        <td className="px-4 py-2 text-sm text-gray-900">{b.expiry_date ? new Date(b.expiry_date).toLocaleDateString() : '—'}</td>
-                        <td className="px-4 py-2 text-sm">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            b.status === 'active' ? 'bg-green-100 text-green-800' :
-                            b.status === 'expired' ? 'bg-red-100 text-red-800' :
-                            b.status === 'recalled' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {b.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
 
           {/* Keywords */}
@@ -411,16 +274,11 @@ export default function BranchProductDetailsPage() {
             </div>
           </div>
 
-          {/* Category & Company */}
+          {/* Company */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Category & Company</h2>
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Company</h2>
             
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">Category</label>
-                <p className="text-gray-900">{product.category?.name || 'No Category'}</p>
-              </div>
-              
               <div>
                 <label className="block text-sm font-medium text-gray-500 mb-1">Company</label>
                 <p className="text-gray-900">{product.company?.name || 'No Company'}</p>

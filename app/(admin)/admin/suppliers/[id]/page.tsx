@@ -168,167 +168,25 @@ export default function SupplierDetailsPage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Information */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Basic Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Supplier Name</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.name}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Supplier Code</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.supplier_code || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Contact Person</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.contact_person || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Status</label>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    supplier.is_active
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {supplier.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Contact Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Phone</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.phone || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.email || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Shop Number</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.shop_no || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Address Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Address Information</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address Line 1</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.address_line1 || 'N/A'}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Address Line 2</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.address_line2 || 'N/A'}</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">City</label>
-                    <p className="mt-1 text-sm text-gray-900">{supplier.city || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">State</label>
-                    <p className="mt-1 text-sm text-gray-900">{supplier.state || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Postal Code</label>
-                    <p className="mt-1 text-sm text-gray-900">{supplier.postal_code || 'N/A'}</p>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Country</label>
-                  <p className="mt-1 text-sm text-gray-900">{supplier.country || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Branch Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Branch Information</h2>
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">Company</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Assigned Branch</label>
-                <p className="mt-1 text-sm text-gray-900">
-                  {branch ? branch.name : supplier.branch_id ? 'Unknown Branch' : 'No Branch Assigned'}
-                </p>
-                {branch && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    <p>Code: {branch.code}</p>
-                    <p>Phone: {branch.phone || 'N/A'}</p>
-                  </div>
-                )}
+                <label className="block text-sm font-medium text-gray-700">Company Name</label>
+                <p className="mt-1 text-sm text-gray-900">{supplier.name}</p>
               </div>
-            </div>
-
-            {/* System Information */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">System Information</h2>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Created At</label>
-                  <p className="mt-1 text-sm text-gray-900">
-                    {new Date(supplier.created_at).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Supplier ID</label>
-                  <p className="mt-1 text-sm text-gray-900 font-mono">{supplier.id}</p>
-                </div>
-                {supplier.latitude && supplier.longitude && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Coordinates</label>
-                    <p className="mt-1 text-sm text-gray-900">
-                      {supplier.latitude.toFixed(6)}, {supplier.longitude.toFixed(6)}
-                    </p>
-                  </div>
-                )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Company Address</label>
+                <p className="mt-1 text-sm text-gray-900">{supplier.address_line1 || 'N/A'}</p>
               </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-              <div className="space-y-3">
-                <button
-                  onClick={handleEdit}
-                  className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-center"
-                >
-                  Edit Supplier
-                </button>
-                <button
-                  onClick={handleToggleStatus}
-                  className={`w-full px-4 py-2 rounded-lg font-medium transition-colors text-center ${
-                    supplier.is_active
-                      ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                      : 'bg-green-100 text-green-800 hover:bg-green-200'
-                  }`}
-                >
-                  {supplier.is_active ? 'Deactivate Supplier' : 'Activate Supplier'}
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-center"
-                >
-                  Delete Supplier
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Phone</label>
+                <p className="mt-1 text-sm text-gray-900">{supplier.phone || 'N/A'}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <p className="mt-1 text-sm text-gray-900">{supplier.email || 'N/A'}</p>
               </div>
             </div>
           </div>

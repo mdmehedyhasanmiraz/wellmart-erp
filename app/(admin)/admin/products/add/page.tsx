@@ -11,19 +11,11 @@ interface ProductFormData {
   dosage_form: string;
   pack_size: string;
   sku: string;
-  pp: number; // Purchase Price
-  tp: number; // Trade Price
-  mrp: number; // Maximum Retail Price
-  stock: number;
-  description: string;
-  category_id: string;
   company_id: string;
   is_active: boolean;
   keywords: string[];
   weight: number;
   weight_unit: string;
-  is_featured: boolean;
-  flash_sale: boolean;
   flat_rate: boolean;
 }
 
@@ -37,45 +29,13 @@ export default function AddProductPage() {
     dosage_form: '',
     pack_size: '',
     sku: '',
-    pp: 0, // Purchase Price
-    tp: 0, // Trade Price
-    mrp: 0, // Maximum Retail Price
-    stock: 0,
-    description: '',
-    category_id: '',
     company_id: '',
     is_active: true,
     keywords: [],
     weight: 0,
     weight_unit: 'kg',
-    is_featured: false,
-    flash_sale: false,
     flat_rate: false,
   });
-
-  
-  
-  interface ProductBatchInput {
-    id?: string;
-    batch_no: string;
-    quantity: number;
-    added_at: string; // yyyy-mm-dd
-    mfg_date?: string;
-    exp_date?: string;
-    note?: string;
-  }
-
-  const [batches, setBatches] = useState<ProductBatchInput[]>([]);
-  const [newBatch, setNewBatch] = useState<ProductBatchInput>({
-    batch_no: '',
-    quantity: 0,
-    added_at: new Date().toISOString().slice(0, 10)
-  });
-
-  useEffect(() => {
-    const total = batches.reduce((sum, b) => sum + (b.quantity || 0), 0);
-    setFormData(prev => ({ ...prev, stock: total }));
-  }, [batches]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -115,23 +75,8 @@ export default function AddProductPage() {
     setLoading(true);
 
     try {
-      const created = await ProductService.createProduct(formData);
+      const created = await ProductService.createProduct(formData as any);
       if (!created) throw new Error('Product not created');
-      if (batches.length > 0) {
-        await Promise.all(
-          batches.map(b =>
-            ProductService.upsertBatch({
-              product_id: created.id,
-              batch_no: b.batch_no,
-              quantity: b.quantity,
-              added_at: b.added_at,
-              mfg_date: b.mfg_date,
-              exp_date: b.exp_date,
-              note: b.note
-            })
-          )
-        );
-      }
       router.push('/admin/products');
     } catch (error) {
       console.error('Error creating product:', error);
@@ -243,211 +188,13 @@ export default function AddProductPage() {
               />
             </div>
           </div>
-
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description
-            </label>
-            <textarea
-              name="description"
-              value={formData.description}
-              onChange={handleInputChange}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="Enter product description"
-            />
-          </div>
         </div>
 
-        {/* Batches */}
+        {/* Weight */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Batches</h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Batch No *</label>
-              <input
-                type="text"
-                value={newBatch.batch_no}
-                onChange={(e) => setNewBatch(prev => ({ ...prev, batch_no: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Batch number"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quantity *</label>
-              <input
-                type="number"
-                min="0"
-                value={newBatch.quantity}
-                onChange={(e) => setNewBatch(prev => ({ ...prev, quantity: parseInt(e.target.value || '0', 10) }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="0"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Added Date</label>
-              <input
-                type="date"
-                value={newBatch.added_at}
-                onChange={(e) => setNewBatch(prev => ({ ...prev, added_at: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">MFG Date</label>
-              <input
-                type="date"
-                value={newBatch.mfg_date || ''}
-                onChange={(e) => setNewBatch(prev => ({ ...prev, mfg_date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">EXP Date</label>
-              <input
-                type="date"
-                value={newBatch.exp_date || ''}
-                onChange={(e) => setNewBatch(prev => ({ ...prev, exp_date: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              />
-            </div>
-            <div className="md:col-span-1">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!newBatch.batch_no || newBatch.quantity < 0) return;
-                  setBatches(prev => [...prev, { ...newBatch }]);
-                  setNewBatch({ batch_no: '', quantity: 0, added_at: new Date().toISOString().slice(0, 10) });
-                }}
-                className="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
-              >
-                Add Batch
-              </button>
-            </div>
-            <div className="md:col-span-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Note</label>
-              <input
-                type="text"
-                value={newBatch.note || ''}
-                onChange={(e) => setNewBatch(prev => ({ ...prev, note: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Optional note about this batch"
-              />
-            </div>
-          </div>
-
-          {batches.length > 0 && (
-            <div className="mt-6 overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch No</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Added</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">MFG</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EXP</th>
-                    <th className="px-4 py-2"></th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {batches.map((b, idx) => (
-                    <tr key={idx}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{b.batch_no}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{b.quantity}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{b.added_at}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{b.mfg_date || '-'}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{b.exp_date || '-'}</td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          type="button"
-                          onClick={() => setBatches(prev => prev.filter((_, i) => i !== idx))}
-                          className="px-3 py-1 text-red-600 hover:text-red-800"
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="mt-3 text-sm text-gray-600">Total stock from batches: <span className="font-semibold">{batches.reduce((s, b) => s + (b.quantity || 0), 0)}</span></div>
-            </div>
-          )}
-        </div>
-
-        {/* Pricing & Inventory */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Pricing & Inventory</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Weight</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Purchase Price (PP) *
-              </label>
-              <input
-                type="number"
-                name="pp"
-                value={formData.pp}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Trade Price (TP) *
-              </label>
-              <input
-                type="number"
-                name="tp"
-                value={formData.tp}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Maximum Retail Price (MRP) *
-              </label>
-              <input
-                type="number"
-                name="mrp"
-                value={formData.mrp}
-                onChange={handleInputChange}
-                required
-                min="0"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="0.00"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Stock Quantity *
-              </label>
-              <input
-                type="number"
-                name="stock"
-                value={formData.stock}
-                readOnly
-                required
-                min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="0"
-              />
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Weight
@@ -483,26 +230,11 @@ export default function AddProductPage() {
           </div>
         </div>
 
-        {/* Categories */}
+        {/* Company */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Categories</h2>
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Company</h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category
-              </label>
-              <select
-                name="category_id"
-                value={formData.category_id}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              >
-                <option value="">Select category</option>
-                {/* Categories will be populated from API */}
-              </select>
-            </div>
-
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Company
@@ -518,8 +250,6 @@ export default function AddProductPage() {
               </select>
             </div>
           </div>
-
-          
         </div>
 
         {/* Settings */}
@@ -537,32 +267,6 @@ export default function AddProductPage() {
               />
               <label className="ml-2 block text-sm text-gray-900">
                 Active Product
-              </label>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="is_featured"
-                checked={formData.is_featured}
-                onChange={handleInputChange}
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-900">
-                Featured Product
-              </label>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                name="flash_sale"
-                checked={formData.flash_sale}
-                onChange={handleInputChange}
-                className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-              />
-              <label className="ml-2 block text-sm text-gray-900">
-                Flash Sale
               </label>
             </div>
 

@@ -148,8 +148,8 @@ export default function BranchAddStockPage() {
     );
   }
 
-  // Check if user's branch code is "MAIN"
-  const isMainBranch = branch?.code === 'MAIN';
+  // Check if user's branch code is "DHK"
+  const isMainBranch = branch?.code === 'DHK';
 
   if (!isMainBranch) {
     return (
@@ -167,7 +167,7 @@ export default function BranchAddStockPage() {
             <div>
               <h3 className="text-lg font-semibold text-red-800">Restricted Access</h3>
               <p className="text-red-700 mt-1">
-                The &quot;Add Stock&quot; feature is only available to users from the Main Branch.
+                The &quot;Add Stock&quot; feature is only available to users from the DHK Branch.
                 Your current branch: <span className="font-medium">{branch?.name || 'Unknown'}</span>
               </p>
               <p className="text-red-600 text-sm mt-2">

@@ -35,7 +35,7 @@ export default function BranchProductsPage() {
         ]);
         
         setBranch(branchData);
-        setIsMainBranch(branchData?.code === 'MAIN');
+        setIsMainBranch(branchData?.code === 'DHK');
         setProducts(productsData);
         
         // Fetch total stock per product from batch-level stocks
