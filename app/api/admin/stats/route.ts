@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
       const { data, error } = await query;
       if (error || !data) return 0;
       type SumRow = Record<string, number | null>;
-      const rows: ReadonlyArray<SumRow> = data as SumRow[];
+      const rows: ReadonlyArray<SumRow> = data as unknown as SumRow[];
       return rows.reduce((acc, row) => acc + Number((row[column] ?? 0)), 0);
     };
 
