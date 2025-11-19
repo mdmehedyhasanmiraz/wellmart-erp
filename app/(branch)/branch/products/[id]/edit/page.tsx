@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductService } from '@/lib/productService';
 import { BranchService } from '@/lib/branchService';
-import { ProductWithDetails, Branch } from '@/types/user';
+import { ProductWithDetails, Branch, UpdateProductData } from '@/types/user';
 
 interface ProductFormData {
   name: string;
@@ -141,7 +141,28 @@ export default function BranchEditProductPage() {
     setSaving(true);
 
     try {
-      await ProductService.updateProduct(productId, formData);
+      const updateData: UpdateProductData = {
+        name: formData.name,
+        slug: formData.slug,
+        generic_name: formData.generic_name || undefined,
+        dosage_form: formData.dosage_form || undefined,
+        pack_size: formData.pack_size || undefined,
+        sku: formData.sku || undefined,
+        stock: formData.stock,
+        company_id: formData.company_id || undefined,
+        is_active: formData.is_active,
+        keywords: formData.keywords.length ? formData.keywords : undefined,
+        weight: formData.weight || undefined,
+        weight_unit: formData.weight_unit || undefined,
+        is_featured: formData.is_featured,
+        flash_sale: formData.flash_sale,
+        flat_rate: formData.flat_rate,
+      };
+
+      const updated = await ProductService.updateProduct(productId, updateData);
+      if (!updated) {
+        throw new Error('Product not updated');
+      }
       router.push('/branch/products');
     } catch (error) {
       console.error('Error updating product:', error);
