@@ -8,6 +8,7 @@ import { UserService } from '@/lib/userService';
 export default function AddUserPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [form, setForm] = useState<CreateUserData>({
     name: '',
@@ -33,9 +34,17 @@ export default function AddUserPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     try {
       const created = await UserService.createUser(form);
-      if (created) router.push('/admin/users');
+      if (created) {
+        router.push('/admin/users');
+      } else {
+        setError('Failed to create user. Please check the console for details.');
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
@@ -51,6 +60,12 @@ export default function AddUserPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <p className="font-medium">Error</p>
+            <p className="text-sm mt-1">{error}</p>
+          </div>
+        )}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>

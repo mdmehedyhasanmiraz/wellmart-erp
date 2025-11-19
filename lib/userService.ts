@@ -424,8 +424,10 @@ export class UserService {
         try {
           msg = await res.json();
         } catch {}
-        console.error('Admin user creation failed:', msg?.error || res.statusText);
-        return null;
+        const errorMsg = msg?.error || res.statusText || 'Failed to create user';
+        console.error('Admin user creation failed:', errorMsg);
+        // Throw error so it can be caught by the UI
+        throw new Error(errorMsg);
       }
       const json = await res.json();
       const createdId = json?.user?.id as string | undefined;
