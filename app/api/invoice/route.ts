@@ -1109,35 +1109,35 @@ async function generatePDFInvoice(
   }
   
   // Three signature columns: Prepared by, Authorized by, Customers Signature
-  const sigTopY = yPos - 20;
-  const sigLabelY = sigTopY - 18;
-  const marginX = 50;
-  const totalSigWidth = width - marginX * 2;
-  const colWidth = totalSigWidth / 3;
-  const linePadding = 10;
+  // const sigTopY = yPos - 20;
+  // const sigLabelY = sigTopY - 18;
+  // const marginX = 50;
+  // const totalSigWidth = width - marginX * 2;
+  // const colWidth = totalSigWidth / 3;
+  // const linePadding = 10;
 
-  const labels = ['Prepared by', 'Authorized by', 'Customers Signature'];
+  // const labels = ['Prepared by', 'Authorized by', 'Customers Signature'];
 
-  for (let i = 0; i < 3; i++) {
-    const colX = marginX + i * colWidth;
-    // Line
-    page.drawLine({
-      start: { x: colX + linePadding, y: sigTopY },
-      end: { x: colX + colWidth - linePadding, y: sigTopY },
-      thickness: 1,
-      color: textColor,
-    });
-    // Label centered under the line
-    const label = labels[i];
-    const labelX = colX + linePadding; // approximate left; equal width columns keep lines equal
-    page.drawText(label, {
-      x: labelX,
-      y: sigLabelY,
-      size: 10,
-      font: boldFont,
-      color: textColor,
-    });
-  }
+  // for (let i = 0; i < 3; i++) {
+  //   const colX = marginX + i * colWidth;
+  //   // Line
+  //   page.drawLine({
+  //     start: { x: colX + linePadding, y: sigTopY },
+  //     end: { x: colX + colWidth - linePadding, y: sigTopY },
+  //     thickness: 1,
+  //     color: textColor,
+  //   });
+  //   // Label centered under the line
+  //   const label = labels[i];
+  //   const labelX = colX + linePadding; // approximate left; equal width columns keep lines equal
+  //   page.drawText(label, {
+  //     x: labelX,
+  //     y: sigLabelY,
+  //     size: 10,
+  //     font: boldFont,
+  //     color: textColor,
+  //   });
+  // }
 
   // Footer
   // yPos = 50;

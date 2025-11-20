@@ -142,31 +142,31 @@ export async function GET(request: NextRequest) {
     }
 
     // Simple signature row for transfer
-    y -= 40;
-    const sigTopY = y;
-    const marginX = 50;
-    const totalSigWidth = width - marginX * 2;
-    const colWidth = totalSigWidth / 3;
-    const linePadding = 10;
-    const sigLabels = ['Prepared by', 'Authorized by', 'Receiver Signature'];
-    for (let i = 0; i < 3; i++) {
-      const colX = marginX + i * colWidth;
-      page.drawLine({
-        start: { x: colX + linePadding, y: sigTopY },
-        end: { x: colX + colWidth - linePadding, y: sigTopY },
-        thickness: 1,
-        color: text,
-      });
-      page.drawText(sigLabels[i], { x: colX + linePadding, y: sigTopY - 16, size: 10, font: bold, color: text });
-    }
+    // y -= 40;
+    // const sigTopY = y;
+    // const marginX = 50;
+    // const totalSigWidth = width - marginX * 2;
+    // const colWidth = totalSigWidth / 3;
+    // const linePadding = 10;
+    // const sigLabels = ['Prepared by', 'Authorized by', 'Receiver Signature'];
+    // for (let i = 0; i < 3; i++) {
+    //   const colX = marginX + i * colWidth;
+    //   page.drawLine({
+    //     start: { x: colX + linePadding, y: sigTopY },
+    //     end: { x: colX + colWidth - linePadding, y: sigTopY },
+    //     thickness: 1,
+    //     color: text,
+    //   });
+    //   page.drawText(sigLabels[i], { x: colX + linePadding, y: sigTopY - 16, size: 10, font: bold, color: text });
+    // }
 
-    const bytes = await pdfDoc.save();
-    return new NextResponse(Buffer.from(bytes), {
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="transfer-${transferId.slice(0, 8)}.pdf"`,
-      },
-    });
+    // const bytes = await pdfDoc.save();
+    // return new NextResponse(Buffer.from(bytes), {
+    //   headers: {
+    //     'Content-Type': 'application/pdf',
+    //     'Content-Disposition': `inline; filename="transfer-${transferId.slice(0, 8)}.pdf"`,
+    //   },
+    // });
   } catch (error) {
     return NextResponse.json({ error: 'Failed to generate transfer invoice' }, { status: 500 });
   }
