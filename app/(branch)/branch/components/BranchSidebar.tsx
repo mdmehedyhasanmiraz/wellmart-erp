@@ -9,6 +9,15 @@ import { BranchService } from '@/lib/branchService';
 
 const branchMenuItems = [
   {
+    name: 'Companies',
+    href: '/branch/companies',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4m10 0v10a2 2 0 01-2 2H9a2 2 0 01-2-2V9m10 0H7" />
+      </svg>
+    ),
+  },
+  {
     name: 'Dashboard',
     href: '/branch',
     icon: (
