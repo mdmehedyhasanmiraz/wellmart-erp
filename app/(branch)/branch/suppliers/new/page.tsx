@@ -56,13 +56,20 @@ export default function BranchSupplierAddPage() {
       const cleanedData: CreateSupplierData = {
         name: formData.name,
         branch_id: userProfile?.branch_id || undefined,
+        supplier_code: formData.supplier_code || undefined,
+        contact_person: formData.contact_person || undefined,
+        phone: formData.phone || undefined,
+        email: formData.email || undefined,
+        shop_no: formData.shop_no || undefined,
+        address_line1: formData.address_line1 || undefined,
+        address_line2: formData.address_line2 || undefined,
+        city: formData.city || undefined,
+        state: formData.state || undefined,
+        postal_code: formData.postal_code || undefined,
+        country: formData.country || undefined,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
       };
-      
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'name' && key !== 'branch_id' && value !== '' && value !== undefined) {
-          cleanedData[key as keyof CreateSupplierData] = value;
-        }
-      });
 
       const created = await SupplierService.createSupplier(cleanedData);
       if (!created) {
