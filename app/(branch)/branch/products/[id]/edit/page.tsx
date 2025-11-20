@@ -5,7 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductService } from '@/lib/productService';
 import { BranchService } from '@/lib/branchService';
-import { ProductWithDetails, Branch, UpdateProductData } from '@/types/user';
+import { SupplierService } from '@/lib/supplierService';
+import { ProductWithDetails, Branch, Supplier, UpdateProductData } from '@/types/user';
 
 interface ProductFormData {
   name: string;
@@ -36,6 +37,7 @@ export default function BranchEditProductPage() {
   const [product, setProduct] = useState<ProductWithDetails | null>(null);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [isMainBranch, setIsMainBranch] = useState(false);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     slug: '',
@@ -62,14 +64,16 @@ export default function BranchEditProductPage() {
 
   const fetchProduct = async () => {
     try {
-      const [productData, branchData] = await Promise.all([
+      const [productData, branchData, supplierData] = await Promise.all([
         ProductService.getProductById(productId),
-        BranchService.getById(userProfile!.branch_id!)
+        BranchService.getById(userProfile!.branch_id!),
+        SupplierService.getSuppliersByBranch(userProfile!.branch_id!)
       ]);
       
       setProduct(productData);
       setBranch(branchData);
       setIsMainBranch(branchData?.code === 'DHK');
+      setSuppliers(supplierData || []);
       
       // Check if user can edit this product
       if (branchData?.code !== 'DHK') {
@@ -403,7 +407,7 @@ export default function BranchEditProductPage() {
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Company
+                Supplier (Company)
               </label>
               <select
                 name="company_id"
@@ -411,9 +415,18 @@ export default function BranchEditProductPage() {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
-                <option value="">Select company</option>
-                {/* Companies will be populated from API */}
+                <option value="">{suppliers.length ? 'Select supplier' : 'No suppliers available'}</option>
+                {suppliers.map(supplier => (
+                  <option key={supplier.id} value={supplier.id}>
+                    {supplier.name}
+                  </option>
+                ))}
               </select>
+              {suppliers.length === 0 && (
+                <p className="text-sm text-gray-500 mt-2">
+                  No suppliers found for this branch. Please add a supplier first.
+                </p>
+              )}
             </div>
           </div>
         </div>
