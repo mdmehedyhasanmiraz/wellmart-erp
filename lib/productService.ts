@@ -530,7 +530,6 @@ export class ProductService {
       const { data, error } = await supabase
         .from('companies')
         .select('*')
-        .eq('is_active', true)
         .order('name', { ascending: true });
 
       if (error) {
@@ -551,7 +550,6 @@ export class ProductService {
         .from('companies')
         .select('*')
         .eq('id', id)
-        .eq('is_active', true)
         .single();
 
       if (error) {

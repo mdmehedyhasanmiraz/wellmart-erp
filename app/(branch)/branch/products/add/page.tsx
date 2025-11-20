@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProductService } from '@/lib/productService';
 import { BranchService } from '@/lib/branchService';
-import { SupplierService } from '@/lib/supplierService';
-import { CreateProductData, Branch, Supplier } from '@/types/user';
+import { CreateProductData, Branch, Company } from '@/types/user';
 
 interface ProductFormData {
   name: string;
@@ -38,7 +37,7 @@ export default function BranchAddProductPage() {
   const [saving, setSaving] = useState(false);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [isMainBranch, setIsMainBranch] = useState(false);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     slug: '',
@@ -65,15 +64,15 @@ export default function BranchAddProductPage() {
     if (userProfile?.branch_id) {
       fetchBranch();
     }
+    fetchCompanies();
   }, [userProfile?.branch_id]);
 
-  const fetchSuppliers = async (branchId: string) => {
+  const fetchCompanies = async () => {
     try {
-      const supplierData = await SupplierService.getSuppliersByBranch(branchId);
-      setSuppliers(supplierData);
+      const companyList = await ProductService.getAllCompanies();
+      setCompanies(companyList.filter(company => company.is_active));
     } catch (error) {
-      console.error('Error fetching suppliers:', error);
-      alert('Failed to load suppliers. Please try again later.');
+      console.error('Error fetching companies:', error);
     }
   };
 
@@ -90,8 +89,6 @@ export default function BranchAddProductPage() {
         router.push('/branch/products');
         return;
       }
-
-      await fetchSuppliers(userProfile!.branch_id!);
     } catch (error) {
       console.error('Error fetching branch:', error);
       alert('Failed to load branch data');
@@ -389,7 +386,7 @@ export default function BranchAddProductPage() {
           <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Supplier (Company)
+                Company
               </label>
               <select
                 name="company_id"
@@ -397,18 +394,13 @@ export default function BranchAddProductPage() {
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
-                <option value="">{suppliers.length ? 'Select supplier' : 'No suppliers available'}</option>
-                {suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
+                <option value="">Select company</option>
+                {companies.map(company => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
                   </option>
                 ))}
               </select>
-              {suppliers.length === 0 && (
-                <p className="text-sm text-gray-500 mt-2">
-                  No suppliers found for this branch. Please add a supplier first.
-                </p>
-              )}
             </div>
           </div>
         </div>
