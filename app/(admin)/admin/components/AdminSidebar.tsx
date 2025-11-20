@@ -15,6 +15,7 @@ import {
   Users,
   UserCog,
   Factory,
+  Building2,
   User,
   GitBranch,
   BarChart3,
@@ -73,6 +74,11 @@ const adminMenuItems = [
     name: 'Suppliers',
     href: '/admin/suppliers',
     icon: <Factory className="w-5 h-5" />,
+  },
+  {
+    name: 'Companies',
+    href: '/admin/companies',
+    icon: <Building2 className="w-5 h-5" />,
   },
   {
     name: 'Employees',
@@ -148,15 +154,15 @@ export default function AdminSidebar() {
     },
     {
       title: 'Operations',
-      items: adminMenuItems.slice(1, 8), // Products, Inventory, Add Stock, Transfers, Sales, Purchases, Suppliers
+      items: adminMenuItems.slice(1, 9), // Products through Collection
     },
     {
       title: 'Management',
-      items: adminMenuItems.slice(8, 15), // Parties, Employees, Designations, Allowances
+      items: adminMenuItems.slice(8, 16), // Parties through Payroll (includes Companies)
     },
     {
       title: 'Configuration',
-      items: adminMenuItems.slice(15), // Branches, Users
+      items: adminMenuItems.slice(16), // Users, Branches, etc.
     },
   ];
 
