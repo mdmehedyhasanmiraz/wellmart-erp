@@ -201,9 +201,9 @@ export interface CreateProductData {
 export interface UpdateProductData {
   name?: string;
   slug?: string;
-  generic_name?: string;
-  dosage_form?: string;
-  pack_size?: string;
+  generic_name?: string | null;
+  dosage_form?: string | null;
+  pack_size?: string | null;
   sku?: string;
   pp?: number; // Purchase Price
   tp?: number; // Trade Price
@@ -211,11 +211,11 @@ export interface UpdateProductData {
   stock?: number;
   image_urls?: string[];
   description?: string;
-  category_id?: string;
-  company_id?: string;
+  category_id?: string | null;
+  company_id?: string | null;
   is_active?: boolean;
   keywords?: string[];
-  video?: string;
+  video?: string | null;
   flash_sale?: boolean;
   is_featured?: boolean;
   flat_rate?: boolean;

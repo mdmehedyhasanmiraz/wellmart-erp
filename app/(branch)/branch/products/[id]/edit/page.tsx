@@ -141,15 +141,21 @@ export default function BranchEditProductPage() {
     setSaving(true);
 
     try {
+      // Helper function to convert empty strings to null for optional fields
+      const emptyToNull = (value: string | undefined): string | null | undefined => {
+        if (value === undefined) return undefined;
+        return value.trim() === '' ? null : value;
+      };
+
       const updateData: UpdateProductData = {
         name: formData.name,
         slug: formData.slug,
-        generic_name: formData.generic_name || undefined,
-        dosage_form: formData.dosage_form || undefined,
-        pack_size: formData.pack_size || undefined,
+        generic_name: emptyToNull(formData.generic_name) as string | null | undefined,
+        dosage_form: emptyToNull(formData.dosage_form) as string | null | undefined,
+        pack_size: emptyToNull(formData.pack_size) as string | null | undefined,
         sku: formData.sku || undefined,
         stock: formData.stock,
-        company_id: formData.company_id || undefined,
+        company_id: (formData.company_id ? formData.company_id : null) as string | null | undefined,
         is_active: formData.is_active,
         keywords: formData.keywords.length ? formData.keywords : undefined,
         weight: formData.weight || undefined,
