@@ -109,7 +109,7 @@ export default function BranchEditDesignationPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      const updated = await DesignationService.update(id, form as any);
+      const updated = await DesignationService.update(id, form);
       if (updated) {
         router.push('/branch/designations');
       } else {

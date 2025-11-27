@@ -129,7 +129,14 @@ export class BatchService {
       }
 
       // Update quantities
-      const updatePayload: Record<string, any> = {
+      const updatePayload: {
+        quantity_received: number;
+        quantity_remaining: number;
+        updated_at: string;
+        purchase_price?: number | null;
+        trade_price?: number | null;
+        mrp?: number | null;
+      } = {
         quantity_received: currentBatch.quantity_received + additionalQuantity,
         quantity_remaining: currentBatch.quantity_remaining + additionalQuantity,
         updated_at: new Date().toISOString()
