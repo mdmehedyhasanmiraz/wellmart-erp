@@ -441,6 +441,9 @@ export interface ProductBatch {
   manufacturing_date?: string;
   supplier_batch_number?: string;
   cost_price?: number;
+  purchase_price?: number;
+  trade_price?: number;
+  mrp?: number;
   quantity_received: number;
   quantity_remaining: number;
   status: BatchStatus;
@@ -462,7 +465,16 @@ export interface ProductBranchBatchStock {
     batch_number: string;
     expiry_date?: string;
     manufacturing_date?: string;
+    purchase_price?: number;
+    trade_price?: number;
+    mrp?: number;
     status: BatchStatus;
+  };
+  products?: {
+    id: string;
+    name: string;
+    sku: string;
+    generic_name?: string;
   };
 }
 
@@ -473,7 +485,11 @@ export interface CreateBatchData {
   manufacturing_date?: string;
   supplier_batch_number?: string;
   cost_price?: number;
+  purchase_price?: number;
+  trade_price?: number;
+  mrp?: number;
   quantity_received: number;
+  quantity_remaining?: number;
 }
 
 export interface UpdateBatchData {
@@ -482,6 +498,9 @@ export interface UpdateBatchData {
   manufacturing_date?: string;
   supplier_batch_number?: string;
   cost_price?: number;
+  purchase_price?: number;
+  trade_price?: number;
+  mrp?: number;
   quantity_received?: number;
   quantity_remaining?: number;
   status?: BatchStatus;

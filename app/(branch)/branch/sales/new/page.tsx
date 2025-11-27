@@ -12,12 +12,15 @@ import { SalesService } from '@/lib/salesService';
 import { useAuth } from '@/contexts/AuthContext';
 import { InventoryService } from '@/lib/inventoryService';
 
+type DiscountType = 'amount' | 'percent';
+
 interface Line {
   product_id: string;
   quantity: number;
   unit_price: number;
   discount_amount: number;
   discount_percent: number;
+  discount_type: DiscountType;
   batch_id: string;
 }
 
@@ -37,11 +40,20 @@ export default function BranchNewSalePage() {
   const [customerPhone, setCustomerPhone] = useState<string>('');
   const [employeeId, setEmployeeId] = useState<string>('');
   const [discountTotal, setDiscountTotal] = useState<number>(0);
+  const [discountTotalType, setDiscountTotalType] = useState<DiscountType>('amount');
   const [taxTotal, setTaxTotal] = useState<number>(0);
   const [shippingTotal, setShippingTotal] = useState<number>(0);
   const [paidTotal, setPaidTotal] = useState<number>(0);
   const [note, setNote] = useState<string>('');
-  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_id: '' }]);
+  const [lines, setLines] = useState<Line[]>([{
+    product_id: '',
+    quantity: 1,
+    unit_price: 0,
+    discount_amount: 0,
+    discount_percent: 0,
+    discount_type: 'amount',
+    batch_id: ''
+  }]);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
 
@@ -89,8 +101,38 @@ export default function BranchNewSalePage() {
     setLines(prev => prev.map((l, i) => i === idx ? { ...l, ...updates } : l));
   };
 
+  const handleDiscountTypeChange = (idx: number, type: DiscountType) => {
+    const line = lines[idx];
+    const currentValue = line.discount_type === 'amount' ? line.discount_amount : line.discount_percent;
+    if (type === 'amount') {
+      setLine(idx, { discount_type: type, discount_amount: currentValue, discount_percent: 0 });
+    } else {
+      setLine(idx, { discount_type: type, discount_percent: currentValue, discount_amount: 0 });
+    }
+  };
+
+  const handleDiscountValueChange = (idx: number, raw: string) => {
+    const parsedValue = raw === '' ? undefined : Number(raw);
+    if (lines[idx].discount_type === 'amount') {
+      setLine(idx, { discount_amount: parsedValue ?? 0, discount_percent: 0 });
+    } else {
+      setLine(idx, { discount_percent: parsedValue ?? 0, discount_amount: 0 });
+    }
+  };
+
   const addLine = () => {
-    setLines(prev => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_id: '' }]);
+    setLines(prev => [
+      ...prev,
+      {
+        product_id: '',
+        quantity: 1,
+        unit_price: 0,
+        discount_amount: 0,
+        discount_percent: 0,
+        discount_type: 'amount',
+        batch_id: ''
+      }
+    ]);
   };
 
   const removeLine = (idx: number) => {
@@ -103,7 +145,7 @@ export default function BranchNewSalePage() {
     const product = products.find(p => p.id === productId);
     setLine(idx, { 
       product_id: productId, 
-      unit_price: product?.tp || 0, // Use trade price (tp) for sales
+      unit_price: product?.tp || 0, // default to trade price (tp) but keep editable
       batch_id: ''
     });
     await loadBatchStocks(productId);
@@ -116,12 +158,16 @@ export default function BranchNewSalePage() {
       const lineTotal = (l.unit_price * l.quantity) - l.discount_amount - (l.unit_price * l.quantity * l.discount_percent / 100);
       return sum + lineTotal;
     }, 0);
+
+    const orderDiscount = discountTotalType === 'amount'
+      ? discountTotal
+      : subtotal * (discountTotal / 100);
     
-    const grandTotal = subtotal - discountTotal + taxTotal + shippingTotal;
+    const grandTotal = subtotal - orderDiscount + taxTotal + shippingTotal;
     const due = grandTotal - paidTotal;
     
-    return { subtotal, grandTotal, due };
-  }, [lines, products, discountTotal, taxTotal, shippingTotal, paidTotal]);
+    return { subtotal, grandTotal, due, orderDiscount };
+  }, [lines, products, discountTotal, discountTotalType, taxTotal, shippingTotal, paidTotal]);
 
   const canSubmit = useMemo(() => {
     if (!branchId) return false;
@@ -141,7 +187,7 @@ export default function BranchNewSalePage() {
       employee_id: employeeId || undefined,
       customer_name: customerName,
       customer_phone: customerPhone,
-      discount_total: discountTotal,
+      discount_total: totals.orderDiscount,
       tax_total: taxTotal,
       shipping_total: shippingTotal,
       paid_total: paidTotal,
@@ -231,15 +277,24 @@ export default function BranchNewSalePage() {
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Order Items</h2>
-              <button onClick={addLine} className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+              <button onClick={addLine} className="cursor-pointer text-sm px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
                 Add Item
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="hidden md:grid grid-cols-12 gap-4 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                <div className="col-span-3">Product</div>
+                <div className="col-span-2">Batch</div>
+                <div className="col-span-1">Qty</div>
+                <div className="col-span-2">Unit Price (TP)</div>
+                <div className="col-span-1">Discount</div>
+                <div className="col-span-2">Value</div>
+                <div className="col-span-1 text-right">Action</div>
+              </div>
               {lines.map((line, idx) => (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border border-gray-200 rounded-lg">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-2">Product</label>
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 text-sm">
+                  <div className="md:col-span-3">
+                    <label className="block text-xs text-gray-500 mb-1 md:hidden">Product</label>
                     <select value={line.product_id} onChange={(e) => handleProductChange(idx, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                       <option value="">Select Product</option>
@@ -248,8 +303,8 @@ export default function BranchNewSalePage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-2">Batch</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1 md:hidden">Batch</label>
                     <select value={line.batch_id} onChange={(e) => setLine(idx, { batch_id: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                       <option value="">Select Batch</option>
@@ -260,24 +315,57 @@ export default function BranchNewSalePage() {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-2">Quantity</label>
+                  <div className="md:col-span-1">
+                    <label className="block text-xs text-gray-500 mb-1 md:hidden">Quantity</label>
                     <input type="number" min="1" value={line.quantity} onChange={(e) => setLine(idx, { quantity: Number(e.target.value) })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-2">Unit Price</label>
-                    <input type="number" min="0" step="0.01" value={line.unit_price} onChange={(e) => setLine(idx, { unit_price: Number(e.target.value) })}
+                  <div className="md:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1 md:hidden">Unit Price (TP)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={line.unit_price === 0 ? '' : line.unit_price}
+                      onChange={(e) => {
+                        const value = e.target.value === '' ? 0 : Number(e.target.value);
+                        setLine(idx, { unit_price: value });
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                   </div>
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-2">Discount</label>
-                    <input type="number" min="0" step="0.01" value={line.discount_amount} onChange={(e) => setLine(idx, { discount_amount: Number(e.target.value) })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                  <div className="md:col-span-1">
+                    <label className="block text-xs text-gray-500 mb-1 md:hidden">Discount</label>
+                    <select
+                      value={line.discount_type}
+                      onChange={(e) => handleDiscountTypeChange(idx, e.target.value as DiscountType)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    >
+                      <option value="amount">Fixed</option>
+                      <option value="percent">%</option>
+                    </select>
                   </div>
-                  <div className="flex items-end">
+                  <div className="md:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1 md:hidden">
+                      {line.discount_type === 'amount' ? 'Discount Amount' : 'Discount (%)'}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        (line.discount_type === 'amount' ? line.discount_amount : line.discount_percent) === 0
+                          ? ''
+                          : line.discount_type === 'amount'
+                            ? line.discount_amount
+                            : line.discount_percent
+                      }
+                      onChange={(e) => handleDiscountValueChange(idx, e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div className="flex items-end md:col-span-1 md:justify-end">
                     <button onClick={() => removeLine(idx)} disabled={lines.length === 1}
-                      className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400">
+                      className="cursor-pointer px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400">
                       Remove
                     </button>
                   </div>
@@ -288,11 +376,28 @@ export default function BranchNewSalePage() {
 
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">Discount Type</label>
+                <select
+                  value={discountTotalType}
+                  onChange={(e) => setDiscountTotalType(e.target.value as DiscountType)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                >
+                  <option value="amount">Fixed</option>
+                  <option value="percent">%</option>
+                </select>
+              </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-2">Discount Total</label>
-                <input type="number" min="0" step="0.01" value={discountTotal} onChange={(e) => setDiscountTotal(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discountTotal === 0 ? '' : discountTotal}
+                  onChange={(e) => setDiscountTotal(e.target.value === '' ? 0 : Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-2">Tax Total</label>

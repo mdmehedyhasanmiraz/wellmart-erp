@@ -46,6 +46,12 @@ export interface CreateBranchBatchStockData {
   quantity: number;
 }
 
+type BatchPricing = {
+  purchase_price?: number | null;
+  trade_price?: number | null;
+  mrp?: number | null;
+};
+
 export class BatchService {
   private static supabase = supabase;
 
@@ -61,7 +67,10 @@ export class BatchService {
           supplier_batch_number: batchData.supplier_batch_number || null,
           cost_price: batchData.cost_price || null,
           quantity_received: batchData.quantity_received,
-          quantity_remaining: batchData.quantity_remaining,
+          quantity_remaining: batchData.quantity_remaining ?? batchData.quantity_received,
+          purchase_price: batchData.purchase_price ?? batchData.cost_price ?? null,
+          trade_price: batchData.trade_price ?? batchData.purchase_price ?? batchData.cost_price ?? null,
+          mrp: batchData.mrp ?? batchData.trade_price ?? batchData.purchase_price ?? batchData.cost_price ?? null,
           status: 'active',
           created_by: batchData.created_by || null
         }])
@@ -105,7 +114,7 @@ export class BatchService {
     }
   }
 
-  static async updateBatchQuantity(batchId: string, additionalQuantity: number): Promise<boolean> {
+  static async updateBatchQuantity(batchId: string, additionalQuantity: number, pricing?: BatchPricing): Promise<boolean> {
     try {
       // First get the current batch
       const { data: currentBatch, error: fetchError } = await this.supabase
@@ -120,13 +129,21 @@ export class BatchService {
       }
 
       // Update quantities
+      const updatePayload: Record<string, any> = {
+        quantity_received: currentBatch.quantity_received + additionalQuantity,
+        quantity_remaining: currentBatch.quantity_remaining + additionalQuantity,
+        updated_at: new Date().toISOString()
+      };
+
+      if (pricing) {
+        if (pricing.purchase_price !== undefined) updatePayload.purchase_price = pricing.purchase_price;
+        if (pricing.trade_price !== undefined) updatePayload.trade_price = pricing.trade_price;
+        if (pricing.mrp !== undefined) updatePayload.mrp = pricing.mrp;
+      }
+
       const { error } = await this.supabase
         .from('product_batches')
-        .update({
-          quantity_received: currentBatch.quantity_received + additionalQuantity,
-          quantity_remaining: currentBatch.quantity_remaining + additionalQuantity,
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', batchId);
 
       if (error) {
@@ -318,6 +335,9 @@ export class BatchService {
             expiry_date,
             manufacturing_date,
             cost_price,
+            purchase_price,
+            trade_price,
+            mrp,
             status
           )
         `)

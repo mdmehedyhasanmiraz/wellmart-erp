@@ -38,6 +38,45 @@ export class InventoryService {
     }
   }
 
+  static async getBatchInventoryByBranch(branchId: string): Promise<ProductBranchBatchStock[]> {
+    try {
+      const { data, error } = await supabase
+        .from('product_branch_batch_stocks')
+        .select(`
+          *,
+          product_batches (
+            id,
+            batch_number,
+            expiry_date,
+            manufacturing_date,
+            purchase_price,
+            trade_price,
+            mrp,
+            status
+          ),
+          products:product_id (
+            id,
+            name,
+            sku,
+            generic_name
+          )
+        `)
+        .eq('branch_id', branchId)
+        .gt('quantity', 0)
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching batch inventory by branch:', error);
+        return [];
+      }
+
+      return data as ProductBranchBatchStock[];
+    } catch (error) {
+      console.error('Exception in getBatchInventoryByBranch:', error);
+      return [];
+    }
+  }
+
   static async getTotalStockForProduct(productId: string): Promise<number> {
     try {
       const { data, error } = await supabase
@@ -273,7 +312,7 @@ export class InventoryService {
         .from('product_batches')
         .insert({
           ...batchData,
-          quantity_remaining: batchData.quantity_received,
+          quantity_remaining: batchData.quantity_remaining ?? batchData.quantity_received,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -303,6 +342,9 @@ export class InventoryService {
           manufacturing_date: cleaned.manufacturing_date ?? null,
           supplier_batch_number: cleaned.supplier_batch_number ?? null,
           cost_price: cleaned.cost_price ?? null,
+          purchase_price: cleaned.purchase_price ?? cleaned.cost_price ?? null,
+          trade_price: cleaned.trade_price ?? null,
+          mrp: cleaned.mrp ?? null,
           quantity_received: cleaned.quantity_received,
           quantity_remaining: cleaned.quantity_remaining,
           status: cleaned.status,
@@ -378,6 +420,9 @@ export class InventoryService {
             batch_number,
             expiry_date,
             manufacturing_date,
+            purchase_price,
+            trade_price,
+            mrp,
             status
           )
         `)

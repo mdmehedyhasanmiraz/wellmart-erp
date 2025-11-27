@@ -441,6 +441,9 @@ CREATE TABLE IF NOT EXISTS public.product_batches (
     mfg_date DATE,
     exp_date DATE,
     note TEXT,
+    purchase_price NUMERIC(12,2),
+    trade_price NUMERIC(12,2),
+    mrp NUMERIC(12,2),
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT timezone('utc'::text, now()),
     UNIQUE(product_id, batch_no)
@@ -581,6 +584,9 @@ CREATE TABLE IF NOT EXISTS public.product_batches (
     manufacturing_date DATE,
     supplier_batch_number TEXT,
     cost_price NUMERIC(12,2),
+    purchase_price NUMERIC(12,2),
+    trade_price NUMERIC(12,2),
+    mrp NUMERIC(12,2),
     quantity_received INTEGER NOT NULL DEFAULT 0,
     quantity_remaining INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'expired', 'recalled', 'consumed')),
@@ -777,19 +783,32 @@ CREATE TRIGGER apply_inventory_movement_with_batch_after_insert
     FOR EACH ROW EXECUTE FUNCTION public.apply_inventory_movement_with_batch();
 
 -- Insert sample batch data
-INSERT INTO public.product_batches (product_id, batch_number, expiry_date, manufacturing_date, supplier_batch_number, cost_price, quantity_received, quantity_remaining, status) VALUES
+INSERT INTO public.product_batches (
+    product_id,
+    batch_number,
+    expiry_date,
+    manufacturing_date,
+    supplier_batch_number,
+    cost_price,
+    purchase_price,
+    trade_price,
+    mrp,
+    quantity_received,
+    quantity_remaining,
+    status
+) VALUES
 -- Vitamin D3 batches
-((SELECT id FROM public.products WHERE sku = 'VIT-D3-1000-60'), 'VIT2412001', '2025-12-31', '2024-01-15', 'SUP-VIT-001', 850.00, 500, 500, 'active'),
-((SELECT id FROM public.products WHERE sku = 'VIT-D3-1000-60'), 'VIT2412002', '2025-11-30', '2024-02-10', 'SUP-VIT-002', 820.00, 300, 300, 'active'),
-((SELECT id FROM public.products WHERE sku = 'VIT-D3-1000-60'), 'VIT2412003', '2025-10-15', '2024-03-05', 'SUP-VIT-003', 880.00, 200, 200, 'active'),
+((SELECT id FROM public.products WHERE sku = 'VIT-D3-1000-60'), 'VIT2412001', '2025-12-31', '2024-01-15', 'SUP-VIT-001', 850.00, 850.00, 900.00, 950.00, 500, 500, 'active'),
+((SELECT id FROM public.products WHERE sku = 'VIT-D3-1000-60'), 'VIT2412002', '2025-11-30', '2024-02-10', 'SUP-VIT-002', 820.00, 820.00, 870.00, 930.00, 300, 300, 'active'),
+((SELECT id FROM public.products WHERE sku = 'VIT-D3-1000-60'), 'VIT2412003', '2025-10-15', '2024-03-05', 'SUP-VIT-003', 880.00, 880.00, 930.00, 990.00, 200, 200, 'active'),
 
 -- Whey Protein batches
-((SELECT id FROM public.products WHERE sku = 'PRO-WHEY-2KG'), 'PRO2412001', '2025-08-20', '2024-01-20', 'SUP-PRO-001', 2500.00, 25, 25, 'active'),
-((SELECT id FROM public.products WHERE sku = 'PRO-WHEY-2KG'), 'PRO2412002', '2025-09-15', '2024-02-15', 'SUP-PRO-002', 2450.00, 15, 15, 'active'),
+((SELECT id FROM public.products WHERE sku = 'PRO-WHEY-2KG'), 'PRO2412001', '2025-08-20', '2024-01-20', 'SUP-PRO-001', 2500.00, 2500.00, 2650.00, 2800.00, 25, 25, 'active'),
+((SELECT id FROM public.products WHERE sku = 'PRO-WHEY-2KG'), 'PRO2412002', '2025-09-15', '2024-02-15', 'SUP-PRO-002', 2450.00, 2450.00, 2600.00, 2750.00, 15, 15, 'active'),
 
 -- Omega-3 batches
-((SELECT id FROM public.products WHERE sku = 'OMG-3-120'), 'OMG2412001', '2025-07-30', '2024-01-25', 'SUP-OMG-001', 1250.00, 150, 150, 'active'),
-((SELECT id FROM public.products WHERE sku = 'OMG-3-120'), 'OMG2412002', '2025-06-20', '2024-02-20', 'SUP-OMG-002', 1200.00, 100, 100, 'active');
+((SELECT id FROM public.products WHERE sku = 'OMG-3-120'), 'OMG2412001', '2025-07-30', '2024-01-25', 'SUP-OMG-001', 1250.00, 1250.00, 1325.00, 1400.00, 150, 150, 'active'),
+((SELECT id FROM public.products WHERE sku = 'OMG-3-120'), 'OMG2412002', '2025-06-20', '2024-02-20', 'SUP-OMG-002', 1200.00, 1200.00, 1280.00, 1350.00, 100, 100, 'active');
 
 -- Insert sample batch stock data
 INSERT INTO public.product_branch_batch_stocks (product_id, branch_id, batch_id, quantity) VALUES

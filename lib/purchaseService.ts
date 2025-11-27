@@ -8,6 +8,11 @@ import {
 } from '@/types/user';
 import { BatchService } from './batchService';
 
+type PurchaseItemInput = Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'> & {
+  trade_price?: number | null;
+  mrp?: number | null;
+};
+
 export class PurchaseService {
   private static supabase = supabase;
 
@@ -140,17 +145,21 @@ export class PurchaseService {
     return data;
   }
 
-  static async addItems(orderId: string, items: Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>): Promise<boolean> {
+  static async addItems(orderId: string, items: PurchaseItemInput[]): Promise<boolean> {
     try {
-      const itemsWithTotals = items.map(item => ({
-        ...item,
-        order_id: orderId,
-        total: (item.unit_price * item.quantity) - item.discount_amount - (item.unit_price * item.quantity * item.discount_percent / 100)
-      }));
+      const itemsWithTotals = items.map(item => {
+        const { trade_price, mrp, ...dbFields } = item;
+        const sanitizedItem = {
+          ...dbFields,
+          order_id: orderId,
+          total: (item.unit_price * item.quantity) - item.discount_amount - (item.unit_price * item.quantity * item.discount_percent / 100)
+        };
+        return { record: sanitizedItem, meta: { trade_price, mrp } };
+      });
 
       const { error } = await this.supabase
         .from('purchase_order_items')
-        .insert(itemsWithTotals);
+        .insert(itemsWithTotals.map(({ record }) => record));
 
       if (error) {
         console.error('addItems error', error);
@@ -158,7 +167,14 @@ export class PurchaseService {
       }
 
           // Create or update batches for each item
-          await this.createOrUpdateBatches(items, orderId);
+          await this.createOrUpdateBatches(
+            itemsWithTotals.map(({ record, meta }) => ({
+              ...record,
+              trade_price: meta.trade_price,
+              mrp: meta.mrp
+            })),
+            orderId
+          );
 
       return true;
     } catch (error) {
@@ -167,7 +183,7 @@ export class PurchaseService {
     }
   }
 
-  private static async createOrUpdateBatches(items: Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>, orderId: string): Promise<void> {
+  private static async createOrUpdateBatches(items: PurchaseItemInput[], orderId: string): Promise<void> {
     // Get the purchase order to get the branch_id
     const { data: order, error: orderError } = await this.supabase
       .from('purchase_orders')
@@ -198,7 +214,11 @@ export class PurchaseService {
         
         if (existingBatch) {
           // Update existing batch quantity
-          await BatchService.updateBatchQuantity(existingBatch.id, item.quantity);
+          await BatchService.updateBatchQuantity(existingBatch.id, item.quantity, {
+            purchase_price: item.unit_price,
+            trade_price: item.trade_price ?? item.unit_price,
+            mrp: item.mrp ?? item.unit_price
+          });
           
           // Update or create branch-specific stock
           await this.updateBranchBatchStock(existingBatch.id, item.product_id, branchId, item.quantity);
@@ -210,6 +230,9 @@ export class PurchaseService {
             product_id: item.product_id,
             batch_number: item.batch_number,
             cost_price: item.unit_price,
+            purchase_price: item.unit_price,
+            trade_price: item.trade_price ?? item.unit_price,
+            mrp: item.mrp ?? item.unit_price,
             quantity_received: item.quantity,
             quantity_remaining: item.quantity,
             status: 'active'
@@ -338,6 +361,7 @@ export class PurchaseService {
             product_id: currentItem.product_id,
             batch_number: newBatchNumber,
             cost_price: currentItem.unit_price,
+            purchase_price: currentItem.unit_price,
             quantity_received: newQuantity,
             quantity_remaining: newQuantity,
             status: 'active'

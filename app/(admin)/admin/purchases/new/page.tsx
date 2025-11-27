@@ -16,7 +16,9 @@ import { SupplierService } from '@/lib/supplierService';
 type Line = {
   product_id: string;
   quantity: number;
-  unit_price: number;
+  purchase_price: number;
+  trade_price: number;
+  mrp: number;
   discount_amount: number;
   discount_percent: number;
   batch_number?: string;
@@ -38,7 +40,16 @@ export default function NewPurchasePage() {
   const [shippingTotal, setShippingTotal] = useState<number>(0);
   const [paidTotal, setPaidTotal] = useState<number>(0);
   const [note, setNote] = useState<string>('');
-  const [lines, setLines] = useState<Line[]>([{ product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
+  const [lines, setLines] = useState<Line[]>([{
+    product_id: '',
+    quantity: 1,
+    purchase_price: 0,
+    trade_price: 0,
+    mrp: 0,
+    discount_amount: 0,
+    discount_percent: 0,
+    batch_number: ''
+  }]);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [batchStocks, setBatchStocks] = useState<Record<string, ProductBranchBatchStock[]>>({});
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -101,7 +112,7 @@ export default function NewPurchasePage() {
 
   const totals = useMemo(() => {
     const lineTotals = lines.map((l) => {
-      const base = l.unit_price * l.quantity;
+      const base = l.purchase_price * l.quantity;
       const percent = base * (l.discount_percent / 100);
       return Math.max(base - l.discount_amount - percent, 0);
     });
@@ -114,7 +125,10 @@ export default function NewPurchasePage() {
   const setLine = (idx: number, update: Partial<Line>) => {
     setLines((prev) => prev.map((l, i) => (i === idx ? { ...l, ...update } : l)));
   };
-  const addLine = () => setLines((prev) => [...prev, { product_id: '', quantity: 1, unit_price: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }]);
+  const addLine = () => setLines((prev) => [
+    ...prev,
+    { product_id: '', quantity: 1, purchase_price: 0, trade_price: 0, mrp: 0, discount_amount: 0, discount_percent: 0, batch_number: '' }
+  ]);
   const removeLine = (idx: number) => setLines((prev) => prev.filter((_, i) => i !== idx));
 
   useEffect(() => {
@@ -153,7 +167,9 @@ export default function NewPurchasePage() {
     const product = products.find(p => p.id === productId);
     setLine(idx, { 
       product_id: productId, 
-      unit_price: product?.pp || 0, // Use purchase price (pp) instead of trade price (tp)
+      purchase_price: product?.pp || 0,
+      trade_price: product?.tp || product?.pp || 0,
+      mrp: product?.mrp || product?.tp || product?.pp || 0,
       batch_number: ''
     });
     setProductQueries((prev) => prev.map((q, i) => (i === idx ? '' : q)));
@@ -222,7 +238,8 @@ export default function NewPurchasePage() {
     if (!branchId) return false;
     if (lines.length === 0) return false;
     for (const l of lines) {
-      if (!l.product_id || l.quantity <= 0 || l.unit_price < 0) return false;
+      if (!l.product_id || l.quantity <= 0 || l.purchase_price < 0) return false;
+      if (l.trade_price < 0 || l.mrp < 0) return false;
     }
     return true;
   }, [branchId, lines]);
@@ -246,7 +263,19 @@ export default function NewPurchasePage() {
       status: 'posted',
     });
     if (!order) { setSubmitting(false); alert('Failed to create order'); return; }
-    const ok = await PurchaseService.addItems(order.id, lines as unknown as Array<Omit<PurchaseOrderItem, 'id' | 'order_id' | 'total'>>);
+
+    const purchaseLines = lines.map((line) => ({
+      product_id: line.product_id,
+      quantity: line.quantity,
+      unit_price: line.purchase_price,
+      discount_amount: line.discount_amount,
+      discount_percent: line.discount_percent,
+      batch_number: line.batch_number,
+      trade_price: line.trade_price,
+      mrp: line.mrp
+    }));
+
+    const ok = await PurchaseService.addItems(order.id, purchaseLines);
     setSubmitting(false);
     if (ok) {
       router.push('/admin/purchases');
@@ -346,7 +375,9 @@ export default function NewPurchasePage() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Batch No</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Qty</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit Price (PP)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Purchase Price (PP)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Trade Price (TP)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">MRP</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc Amt</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Disc %</th>
                     <th className="px-3 py-2"></th>
@@ -363,7 +394,7 @@ export default function NewPurchasePage() {
                             onChange={(e) => {
                               const val = e.target.value;
                               setProductQueries((prev) => prev.map((q, i) => (i === idx ? val : q)));
-                              if (l.product_id) setLine(idx, { product_id: '', unit_price: 0 });
+                              if (l.product_id) setLine(idx, { product_id: '', purchase_price: 0, trade_price: 0, mrp: 0 });
                               const rect = (e.target as HTMLInputElement).getBoundingClientRect();
                               setProductAnchors((prev) => prev.map((a, i) => (i === idx ? { left: rect.left + window.scrollX, top: rect.bottom + window.scrollY, width: rect.width, height: rect.height } : a)));
                             }}
@@ -412,8 +443,31 @@ export default function NewPurchasePage() {
                           className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" />
                       </td>
                       <td className="px-3 py-2">
-                        <input type="number" min={0} value={l.unit_price} readOnly
-                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700" />
+                        <input
+                          type="number"
+                          min={0}
+                          value={l.purchase_price}
+                          onChange={(e) => setLine(idx, { purchase_price: Number(e.target.value) })}
+                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={l.trade_price}
+                          onChange={(e) => setLine(idx, { trade_price: Number(e.target.value) })}
+                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={l.mrp}
+                          onChange={(e) => setLine(idx, { mrp: Number(e.target.value) })}
+                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        />
                       </td>
                       <td className="px-3 py-2">
                         <input type="number" min={0} value={l.discount_amount} onChange={(e) => setLine(idx, { discount_amount: Number(e.target.value) })}

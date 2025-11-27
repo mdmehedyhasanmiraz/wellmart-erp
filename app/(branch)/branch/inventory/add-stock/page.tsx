@@ -25,8 +25,22 @@ export default function BranchAddStockPage() {
   const [expiryDate, setExpiryDate] = useState<string>('');
   const [manufacturingDate, setManufacturingDate] = useState<string>('');
   const [supplierBatchNumber, setSupplierBatchNumber] = useState<string>('');
+  const [purchasePrice, setPurchasePrice] = useState<number>(0);
   const [tradePrice, setTradePrice] = useState<number>(0);
+  const [mrp, setMrp] = useState<number>(0);
   const [loadingBatchNumber, setLoadingBatchNumber] = useState<boolean>(false);
+
+  const applyProductPricing = (product?: Product) => {
+    if (!product) {
+      setPurchasePrice(0);
+      setTradePrice(0);
+      setMrp(0);
+      return;
+    }
+    setPurchasePrice(product.pp || 0);
+    setTradePrice(product.tp || product.pp || 0);
+    setMrp(product.mrp || product.tp || product.pp || 0);
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -47,6 +61,7 @@ export default function BranchAddStockPage() {
         // Pre-select first product if available
         if (productsData.length > 0) {
           setProductId(productsData[0].id);
+          applyProductPricing(productsData[0]);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -64,12 +79,13 @@ export default function BranchAddStockPage() {
     return true;
   }, [branch?.id, productId, quantity, useBatch, batchNumber]);
 
-  const generateBatchNumber = async () => {
-    if (!productId) return;
+  const generateBatchNumber = async (targetProductId?: string) => {
+    const effectiveProductId = targetProductId || productId;
+    if (!effectiveProductId) return;
     
     setLoadingBatchNumber(true);
     try {
-      const generatedNumber = await InventoryService.generateBatchNumber(productId);
+      const generatedNumber = await InventoryService.generateBatchNumber(effectiveProductId);
       setBatchNumber(generatedNumber);
     } catch (error) {
       console.error('Error generating batch number:', error);
@@ -80,8 +96,10 @@ export default function BranchAddStockPage() {
 
   const handleProductChange = (newProductId: string) => {
     setProductId(newProductId);
+    const selectedProduct = products.find((p) => p.id === newProductId);
+    applyProductPricing(selectedProduct);
     if (useBatch) {
-      generateBatchNumber();
+      generateBatchNumber(newProductId);
     }
   };
 
@@ -100,8 +118,12 @@ export default function BranchAddStockPage() {
           expiry_date: expiryDate || undefined,
           manufacturing_date: manufacturingDate || undefined,
           supplier_batch_number: supplierBatchNumber.trim() || undefined,
-          cost_price: tradePrice > 0 ? tradePrice : undefined,
-          quantity_received: quantity
+          cost_price: purchasePrice > 0 ? purchasePrice : undefined,
+          purchase_price: purchasePrice > 0 ? purchasePrice : undefined,
+          trade_price: tradePrice > 0 ? tradePrice : undefined,
+          mrp: mrp > 0 ? mrp : undefined,
+          quantity_received: quantity,
+          quantity_remaining: quantity
         };
         
         const batch = await InventoryService.createBatch(batchData);
@@ -299,14 +321,38 @@ export default function BranchAddStockPage() {
               </div>
               
               <div>
-                <label className="block text-sm text-gray-600 mb-2">Trade Price (৳)</label>
+                <label className="block text-sm text-gray-600 mb-2">Purchase Price (PP)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={purchasePrice}
+                  onChange={(e) => setPurchasePrice(Number(e.target.value))}
+                  placeholder="Enter purchase price per unit"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">Trade Price (TP)</label>
                 <input
                   type="number"
                   min={0}
                   step="0.01"
                   value={tradePrice}
                   onChange={(e) => setTradePrice(Number(e.target.value))}
-                  placeholder="Optional trade price per unit"
+                  placeholder="Enter trade price per unit"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-2">MRP</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={mrp}
+                  onChange={(e) => setMrp(Number(e.target.value))}
+                  placeholder="Enter maximum retail price"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
