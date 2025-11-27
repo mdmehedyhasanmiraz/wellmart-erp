@@ -24,7 +24,10 @@ export interface CreateBatchData {
   supplier_batch_number?: string;
   cost_price?: number;
   quantity_received: number;
-  quantity_remaining: number;
+  quantity_remaining?: number;
+  purchase_price?: number;
+  trade_price?: number;
+  mrp?: number;
   status?: 'active' | 'expired' | 'recalled' | 'consumed';
   created_by?: string;
 }
