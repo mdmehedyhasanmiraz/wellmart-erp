@@ -697,7 +697,7 @@ async function generatePDFInvoice(
   yPos -= 20;
   const tableStartY = yPos;
   const tableWidth = width - 100;
-  const colWidths = [150, 80, 40, 80, 80, 30, 120]; // Product, Batch, Qty, Unit Price, Discount, Total
+  const colWidths = [150, 80, 40, 80, 100, 30, 120]; // Adjusted discount column width
 
   // Draw table header background
   page.drawRectangle({
@@ -709,7 +709,7 @@ async function generatePDFInvoice(
   });
 
   // Table headers
-  const headers = ['Product', 'Batch', 'Qty', 'Unit TP', 'Discount', 'Total'];
+  const headers = ['Product', 'Batch', 'Qty', 'Unit TP', 'Discount (Amt/%)', 'Total'];
   let xPos = 50;
   headers.forEach((header, index) => {
     page.drawText(header, {
@@ -797,7 +797,15 @@ async function generatePDFInvoice(
     });
 
     // Discount
-    page.drawText(`${item.discount_amount.toFixed(2)}`, {
+    const discountBase = item.unit_price * item.quantity;
+    const percentValue =
+      item.discount_percent > 0 ? (discountBase * item.discount_percent) / 100 : 0;
+    const discountAmount = item.discount_amount > 0 ? item.discount_amount : percentValue;
+    const discountText =
+      item.discount_percent > 0
+        ? `${discountAmount.toFixed(2)} (${item.discount_percent.toFixed(2)}%)`
+        : `${discountAmount.toFixed(2)}`;
+    page.drawText(discountText, {
       x: 405,
       y: yPos - 12,
       size: 9,
@@ -854,7 +862,11 @@ async function generatePDFInvoice(
     font: font,
     color: textColor,
   });
-  page.drawText(`-${order.discount_total.toFixed(2)}`, {
+  const orderDiscountValue =
+    order.subtotal > 0 && order.discount_total > order.subtotal
+      ? order.discount_total
+      : order.discount_total;
+  page.drawText(`-${orderDiscountValue.toFixed(2)}`, {
     x: width - 130,
     y: yPos,
     size: 9,
