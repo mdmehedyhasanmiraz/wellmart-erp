@@ -106,7 +106,7 @@ export default function BranchEmployeeDetailsPage() {
           <Detail label="Employee Code" value={employee.employee_code} />
           <Detail label="Phone" value={employee.phone} />
           <Detail label="Email" value={employee.email} />
-          <Detail label="Reports To" value={employee.manager?.name} />
+          <Detail label="Reports To" value={employee.reports_to_employee_id ? 'See admin view' : '—'} />
           <Detail label="Joined Date" value={formatDate(employee.joined_date)} />
           <Detail label="Resigned Date" value={formatDate(employee.resigned_date)} />
           <Detail label="Date of Birth" value={formatDate(employee.date_of_birth)} />
