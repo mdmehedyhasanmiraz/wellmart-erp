@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { DesignationService } from '@/lib/designationService';
 import { Designation } from '@/types/user';
 
 export default function BranchDesignationsPage() {
+  const router = useRouter();
   const [designations, setDesignations] = useState<Designation[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,6 +59,12 @@ export default function BranchDesignationsPage() {
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Designations</h1>
           <p className="text-gray-600 mt-1">Reference the designations available across the organization.</p>
         </div>
+        <button
+          onClick={() => router.push('/branch/designations/add')}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          Add Designation
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">

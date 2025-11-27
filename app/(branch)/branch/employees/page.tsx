@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Employee } from '@/types/user';
 import { EmployeeService } from '@/lib/employeeService';
 
 export default function BranchEmployeesPage() {
   const { userProfile } = useAuth();
+  const router = useRouter();
   const branchId = userProfile?.branch_id;
 
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -75,6 +77,12 @@ export default function BranchEmployeesPage() {
             Viewing employees assigned to <span className="font-semibold">{userProfile?.branch_name}</span>
           </p>
         </div>
+        <button
+          onClick={() => router.push('/branch/employees/add')}
+          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+        >
+          Add Employee
+        </button>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">

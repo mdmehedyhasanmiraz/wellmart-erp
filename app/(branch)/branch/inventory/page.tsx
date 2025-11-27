@@ -145,6 +145,7 @@ export default function BranchInventoryPage() {
   };
 
   return (
+    <>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Inventory</h1>
@@ -236,7 +237,7 @@ export default function BranchInventoryPage() {
         )}
       </div>
     </div>
-      {showEditModal && (
+    {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
@@ -372,6 +373,7 @@ export default function BranchInventoryPage() {
           </div>
         </div>
       )}
+    </>
   );
 }
 
