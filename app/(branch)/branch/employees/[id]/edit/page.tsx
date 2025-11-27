@@ -20,6 +20,7 @@ export default function BranchEditEmployeePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [designations, setDesignations] = useState<Designation[]>([]);
+  const [loadingDesignations, setLoadingDesignations] = useState(true);
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState<CreateEmployeeData>({
@@ -47,6 +48,8 @@ export default function BranchEditEmployeePage() {
         setDesignations(data);
       } catch (error) {
         console.error('Error loading designations', error);
+      } finally {
+        setLoadingDesignations(false);
       }
     };
     loadDesignations();
