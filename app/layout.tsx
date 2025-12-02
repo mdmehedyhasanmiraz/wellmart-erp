@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Wellmart ERP - Wellcare Nutriscience Ltd",
+  title: "Wellcare ERP - Wellcare Nutriscience Ltd",
   description: "Enterprise Resource Planning solution for Wellcare Nutriscience Ltd",
 };
 

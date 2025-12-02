@@ -417,6 +417,7 @@ async function generatePDFInvoice(
     { label: 'Date:', value: invoiceDate },
     { label: 'Payment Status:', value: paymentStatus },
     { label: 'MPO Code:', value: employee?.employee_code || 'N/A' },
+    { label: 'MPO Name:', value: employee?.name || 'N/A' },
   ];
 
   invoiceDetails.forEach((detail) => {
