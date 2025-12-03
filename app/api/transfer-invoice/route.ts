@@ -160,15 +160,22 @@ export async function GET(request: NextRequest) {
     //   page.drawText(sigLabels[i], { x: colX + linePadding, y: sigTopY - 16, size: 10, font: bold, color: text });
     // }
 
-    // const bytes = await pdfDoc.save();
-    // return new NextResponse(Buffer.from(bytes), {
-    //   headers: {
-    //     'Content-Type': 'application/pdf',
-    //     'Content-Disposition': `inline; filename="transfer-${transferId.slice(0, 8)}.pdf"`,
-    //   },
-    // });
+    const bytes = await pdfDoc.save();
+    return new NextResponse(Buffer.from(bytes), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="transfer-${transferId.slice(0, 8)}.pdf"`,
+      },
+    });
   } catch (error) {
-    return NextResponse.json({ error: 'Failed to generate transfer invoice' }, { status: 500 });
+    console.error('transfer-invoice error:', error);
+    return NextResponse.json(
+      {
+        error: 'Failed to generate transfer invoice',
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   }
 }
 
