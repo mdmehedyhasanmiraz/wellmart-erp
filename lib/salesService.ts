@@ -180,6 +180,20 @@ export class SalesService {
     await supabase.rpc('recalc_sales_totals', { p_order_id: orderId });
     return true;
   }
+
+  static async deleteOrder(orderId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('sales_orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (error) {
+      console.error('deleteOrder error', error);
+      return false;
+    }
+
+    return true;
+  }
 }
 
 

@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import AdminSidebar from '../components/AdminSidebar';
-import { Branch } from '@/types/user';
+import { Branch, Employee, Party, SalesOrder } from '@/types/user';
 import { BranchService } from '@/lib/branchService';
-import { ReportsService, SalesDaily, ProfitDaily } from '@/lib/reportsService';
+import { ReportsService, SalesDaily, ProfitDaily, PartySalesSummary, EmployeeSalesSummary, PeriodGroup, PeriodSalesSummary } from '@/lib/reportsService';
+import { EmployeeService } from '@/lib/employeeService';
+import { PartyService } from '@/lib/partyService';
 
 export default function ReportsPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -14,30 +16,63 @@ export default function ReportsPage() {
   const [sales, setSales] = useState<SalesDaily[]>([]);
   const [profit, setProfit] = useState<ProfitDaily[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(true);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [parties, setParties] = useState<Party[]>([]);
+  const [partySummary, setPartySummary] = useState<PartySalesSummary[]>([]);
+  const [employeeSummary, setEmployeeSummary] = useState<EmployeeSalesSummary[]>([]);
+  const [periodSummary, setPeriodSummary] = useState<PeriodSalesSummary[]>([]);
+  const [periodGroup, setPeriodGroup] = useState<PeriodGroup>('date');
+  const [ordersForRange, setOrdersForRange] = useState<SalesOrder[]>([]);
 
   useEffect(() => {
-    BranchService.getAll().then((b) => {
+    const init = async () => {
+      const [b, e, p] = await Promise.all([
+        BranchService.getAll(),
+        EmployeeService.getAll(),
+        PartyService.list(),
+      ]);
       setBranches(b);
+      setEmployees(e);
+      setParties(p);
       setBranchId('');
       const today = new Date();
       const start = new Date(today.getFullYear(), today.getMonth(), 1);
-      setFrom(start.toISOString().slice(0,10));
-      setTo(today.toISOString().slice(0,10));
-    });
+      setFrom(start.toISOString().slice(0, 10));
+      setTo(today.toISOString().slice(0, 10));
+    };
+    init();
   }, []);
 
   useEffect(() => {
     if (!from || !to) return;
-    setLoading(true);
-    Promise.all([
-      ReportsService.getSalesSummary(from, to, branchId || undefined),
-      ReportsService.getProfitSummary(from, to, branchId || undefined)
-    ]).then(([s, p]) => {
+    const load = async () => {
+      setLoading(true);
+      setOrdersLoading(true);
+      const [s, p, orders] = await Promise.all([
+        ReportsService.getSalesSummary(from, to, branchId || undefined),
+        ReportsService.getProfitSummary(from, to, branchId || undefined),
+        ReportsService.getSalesOrdersForRange(from, to, branchId || undefined),
+      ]);
       setSales(s);
       setProfit(p);
+      setOrdersForRange(orders);
+      const partiesById = parties.reduce<Record<string, string>>((acc, party) => {
+        if (party.id) acc[party.id] = party.name;
+        return acc;
+      }, {});
+      const employeesById = employees.reduce<Record<string, string>>((acc, emp) => {
+        if (emp.id) acc[emp.id] = emp.name;
+        return acc;
+      }, {});
+      setPartySummary(ReportsService.buildPartySummary(orders, partiesById));
+      setEmployeeSummary(ReportsService.buildEmployeeSummary(orders, employeesById));
+      setPeriodSummary(ReportsService.buildPeriodSummary(orders, periodGroup));
       setLoading(false);
-    });
-  }, [from, to, branchId]);
+      setOrdersLoading(false);
+    };
+    load();
+  }, [from, to, branchId, parties, employees, periodGroup]);
 
   const totals = useMemo(() => {
     const revenue = profit.reduce((s, r) => s + Number(r.revenue || 0), 0);
@@ -51,9 +86,18 @@ export default function ReportsPage() {
     <div className="min-h-screen bg-gray-100 flex">
       <AdminSidebar />
       <div className="p-8 w-full">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
-          <p className="text-gray-600">Sales and profit-loss summaries</p>
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Reports</h1>
+            <p className="text-gray-600">Sales and profit-loss summaries</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Print
+          </button>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -164,6 +208,133 @@ export default function ReportsPage() {
                 </tbody>
               </table>
               {profit.length === 0 && (<div className="py-10 text-center text-gray-500">No data</div>)}
+            </div>
+          )}
+        </div>
+
+        {/* Party-wise Sales Summary */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mt-6">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h2 className="font-semibold">Party-wise Sales</h2>
+          </div>
+          {ordersLoading ? (
+            <div className="py-10 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Party / Customer</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Due</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {partySummary.map((row) => (
+                    <tr key={row.party_id ?? 'walkin'}>
+                      <td className="px-4 py-2 text-sm">{row.customer_name}</td>
+                      <td className="px-4 py-2 text-sm">{row.orders}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.grand_total.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.paid_total.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.due_total.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {partySummary.length === 0 && <div className="py-10 text-center text-gray-500">No data</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Employee-wise Sales Summary */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mt-6">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h2 className="font-semibold">Employee-wise Sales</h2>
+          </div>
+          {ordersLoading ? (
+            <div className="py-10 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Due</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {employeeSummary.map((row) => (
+                    <tr key={row.employee_id ?? 'none'}>
+                      <td className="px-4 py-2 text-sm">{row.employee_name}</td>
+                      <td className="px-4 py-2 text-sm">{row.orders}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.grand_total.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.paid_total.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.due_total.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {employeeSummary.length === 0 && <div className="py-10 text-center text-gray-500">No data</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Period-wise Sales Summary */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mt-6">
+          <div className="p-4 border-b flex items-center justify-between">
+            <h2 className="font-semibold">Period-wise Sales</h2>
+            <select
+              value={periodGroup}
+              onChange={(e) => {
+                const g = e.target.value as PeriodGroup;
+                setPeriodGroup(g);
+                setPeriodSummary(ReportsService.buildPeriodSummary(ordersForRange, g));
+              }}
+              className="px-3 py-1 border border-gray-300 rounded text-sm"
+            >
+              <option value="date">Date</option>
+              <option value="month">Month</option>
+              <option value="year">Year</option>
+            </select>
+          </div>
+          {ordersLoading ? (
+            <div className="py-10 flex justify-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-purple-600 border-t-transparent"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Orders</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Due</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {periodSummary.map((row) => (
+                    <tr key={row.period}>
+                      <td className="px-4 py-2 text-sm">{row.period}</td>
+                      <td className="px-4 py-2 text-sm">{row.orders}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.grand_total.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.paid_total.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-sm">৳{row.due_total.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {periodSummary.length === 0 && <div className="py-10 text-center text-gray-500">No data</div>}
             </div>
           )}
         </div>

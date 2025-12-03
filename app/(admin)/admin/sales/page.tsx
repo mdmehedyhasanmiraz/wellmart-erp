@@ -13,6 +13,7 @@ export default function SalesListPage() {
   const [status, setStatus] = useState<string>('');
   const [orders, setOrders] = useState<SalesOrder[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     BranchService.getAll().then((b) => {
@@ -29,6 +30,26 @@ export default function SalesListPage() {
       setLoading(false);
     });
   }, [branchId, status]);
+
+  const handleDelete = async (orderId: string) => {
+    if (!confirm('Are you sure you want to delete this sales invoice? This action cannot be undone.')) {
+      return;
+    }
+    setDeletingId(orderId);
+    try {
+      const ok = await SalesService.deleteOrder(orderId);
+      if (ok) {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      } else {
+        alert('Failed to delete sales invoice.');
+      }
+    } catch (error) {
+      console.error('Error deleting sales invoice', error);
+      alert('Failed to delete sales invoice.');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
@@ -110,6 +131,13 @@ export default function SalesListPage() {
                           >
                             Edit
                           </Link>
+                          <button
+                            onClick={() => handleDelete(o.id)}
+                            disabled={deletingId === o.id}
+                            className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition-colors disabled:opacity-50"
+                          >
+                            {deletingId === o.id ? 'Deleting...' : 'Delete'}
+                          </button>
                         </div>
                       </td>
                     </tr>
