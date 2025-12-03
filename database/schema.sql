@@ -997,8 +997,24 @@ BEGIN
     END IF;
 
     FOR item IN SELECT * FROM public.branch_transfer_items WHERE transfer_id = p_transfer_id LOOP
-        INSERT INTO public.inventory_movements (product_id, from_branch_id, to_branch_id, quantity, type, note, created_by)
-        VALUES (item.product_id, t.from_branch_id, t.to_branch_id, item.quantity, 'transfer', CONCAT('Transfer ', p_transfer_id), p_actor);
+        INSERT INTO public.inventory_movements (
+            product_id,
+            from_branch_id,
+            to_branch_id,
+            quantity,
+            batch_id,
+            note,
+            created_by
+        )
+        VALUES (
+            item.product_id,
+            t.from_branch_id,
+            t.to_branch_id,
+            item.quantity,
+            item.batch_id,
+            CONCAT('Transfer ', p_transfer_id),
+            p_actor
+        );
     END LOOP;
 
     UPDATE public.branch_transfers
