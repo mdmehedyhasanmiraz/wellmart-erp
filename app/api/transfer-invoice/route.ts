@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
-import { supabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,10 +13,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'transferId is required' }, { status: 400 });
     }
 
-    // Use service role to bypass RLS on server
+    // Build a server-side client only at request time so build-time
+    // module evaluation does not fail when env vars are missing.
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
-    const admin = serviceKey ? createClient(supabaseUrl, serviceKey, { db: { schema: 'public' } }) : supabase;
+    if (!supabaseUrl || !serviceKey) {
+      return NextResponse.json(
+        { error: 'Missing Supabase server environment variables' },
+        { status: 500 },
+      );
+    }
+
+    const admin = createClient(supabaseUrl, serviceKey, { db: { schema: 'public' } });
 
     const { data: transfer, error: tErr } = await admin
       .from('branch_transfers')
