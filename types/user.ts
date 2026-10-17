@@ -794,3 +794,110 @@ export interface EmployeeAllowanceItem {
   unit_value: number;
   total_value: number;
 }
+
+// ============================================================================
+// DOCTOR MASTER & ATTENDANCE SYSTEM
+// ============================================================================
+
+export interface Doctor {
+  id: string;
+  branch_id: string;
+  name: string;
+  degrees?: string;
+  specialty?: string;
+  hospital_clinic_name?: string;
+  chamber_address?: string;
+  phone?: string;
+  email?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  geofence_radius_meters: number; // standard default 180m (150-200m)
+  visiting_hours?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MonthlyWorkday {
+  id: string;
+  branch_id: string;
+  year: number;
+  month: number;
+  total_calendar_days: number;
+  total_working_days: number;
+  weekend_days: number;
+  holiday_count: number;
+  holiday_dates?: string[];
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ScheduleShift = 'morning' | 'evening' | 'full_day';
+export type ScheduleStatus = 'scheduled' | 'completed' | 'missed' | 'rescheduled' | 'cancelled';
+
+export interface DoctorVisitSchedule {
+  id: string;
+  branch_id: string;
+  employee_id: string;
+  doctor_id: string;
+  schedule_date: string; // YYYY-MM-DD
+  shift_time: ScheduleShift;
+  priority: 'urgent' | 'normal' | 'follow_up';
+  notes?: string;
+  status: ScheduleStatus;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  doctor?: Doctor;
+  employee?: Employee;
+}
+
+export type AttendanceStatus = 'present' | 'late' | 'half_day' | 'absent' | 'on_leave' | 'holiday';
+
+export interface DailyAttendance {
+  id: string;
+  branch_id: string;
+  employee_id: string;
+  attendance_date: string; // YYYY-MM-DD
+  check_in_time?: string;
+  check_in_lat?: number | null;
+  check_in_lng?: number | null;
+  check_in_address?: string;
+  check_out_time?: string;
+  check_out_lat?: number | null;
+  check_out_lng?: number | null;
+  check_out_address?: string;
+  status: AttendanceStatus;
+  work_summary?: string;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  employee?: Employee;
+}
+
+export interface DoctorVisitCheckin {
+  id: string;
+  schedule_id?: string | null;
+  daily_attendance_id?: string | null;
+  employee_id: string;
+  doctor_id: string;
+  branch_id: string;
+  visit_date: string;
+  checkin_time: string;
+  latitude: number;
+  longitude: number;
+  accuracy_meters?: number | null;
+  distance_meters?: number | null;
+  is_within_geofence: boolean;
+  verification_status: 'verified' | 'out_of_range' | 'flagged' | 'manual_approved';
+  remarks?: string;
+  products_discussed?: string;
+  sample_given?: string;
+  doctor_feedback?: string;
+  created_at: string;
+  // Joins
+  doctor?: Doctor;
+  employee?: Employee;
+}
